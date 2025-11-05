@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>影音組器材列表</title>
+    <title>動態資料驅動的網頁介面</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
         /* 基本樣式 */
@@ -71,10 +70,16 @@
             background-color: #fafafa;
             border: 1px solid #ddd;
             border-radius: 6px;
-            padding: 15px;
+            padding: 5px;
             text-align: center;
+            font-size: 20px;
             cursor: grab;
             transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.4s ease;
+             /* 修正 iPhone 長按選取問題 START */
+            user-select: none;
+            -webkit-user-select: none; /* 針對 WebKit 核心 (如 Safari) */
+            touch-action: manipulation; /* 幫助觸控互動響應 */
+            /* 修正 iPhone 長按選取問題 END */
         }
         .object[data-panel-open="false"] {
             cursor: pointer;
@@ -135,47 +140,107 @@
             flex-grow: 1;
             overflow-y: auto;
             cursor: copy;
-            padding-bottom: 20px;
+            padding-bottom: 5px;
         }
-        .object-panel .close-btn {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            font-size: 20px;
-            width: 40px;
-            height: 40px;
-            background-color: #3f51b5;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
+
+        /* *** NEW: 提高的動作條容器樣式 (實現細線與按鈕懸浮覆蓋) *** */
+        .action-bar-container {
+            position: relative;
+            height: 40px; /* 容納按鈕的高度 */
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
+            margin-bottom: 5px; /* ADJUSTED: 減少下方邊距，拉近下方的登載區 */
+            margin-top: 5px; /* 與上方的內容區隔開 */
+            width: 100%;
         }
-        .object-panel .close-btn:hover {
+        
+        /* NEW: 提高後的細線樣式 */
+        .fine-line-raised {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: #e0e0e0;
+            z-index: 10;
+        }
+
+        /* 動作按鈕群組（底部統一按鈕）樣式 */
+        #panel-action-bar {
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            position: relative; 
+            z-index: 20; /* 確保按鈕覆蓋細線 */
+            gap: 20px; /* 按鈕間距 */
+            padding: 0 10px; /* 給按鈕留出遮蓋細線的空間 */
+            border-radius: 999px; /* 保持按鈕組的圓角視覺效果 */
+        }
+        /* *** END: 提高的動作條容器樣式 *** */
+
+        /* 動作槽樣式 (保證位置一致性) - 保持不變 */
+        .action-slot {
+            position: relative;
+            height: 40px; /* 固定高度 */
+        }
+        .primary-slot {
+            width: 100px; /* 容納更改/確定按鈕的寬度 */
+        }
+        .cancel-slot {
+            width: 100px; /* 容納 X/取消按鈕的寬度 */
+        }
+        
+        /* 動作按鈕共用樣式 (用於重疊) */
+        .action-slot button {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; /* 填滿整個槽的寬度 */
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 16px;
+            color: white;
+            border-radius: 4px;
+        }
+        
+        /* 更改/確定按鈕樣式 */
+        #change-btn, #confirm-btn, #cancel-btn-inline {
+            background-color: #3f51b5;
+            padding: 8px 16px;
+            display: block; /* 預設為 block */
+        }
+        
+        #change-btn:hover, #confirm-btn:hover {
             background-color: #5c6bc0;
         }
         
-        /* 新增：內容面板內的互動區塊樣式 */
-        .panel-actions {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding-top: 10px;
-            border-top: 1px solid #e0e0e0;
+        /* X 關閉按鈕的特殊樣式 (圓形、紅色) */
+        #close-btn-inline {
+            width: 40px; /* 圓形尺寸 */
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 20px;
+            background-color: #f44336; /* 顯眼紅色 */
+            
+            /* 將 X 按鈕靠右對齊 (在 100px 的槽內) */
+            left: auto;
+            right: 0;
+            width: 40px; /* 覆蓋 width: 100% */
         }
-        .action-btn {
-            background-color: #3f51b5;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            cursor: pointer;
-            transition: background-color 0.2s;
+
+        /* 取消按鈕的特殊顏色 (與確定/更改區分) */
+        #cancel-btn-inline {
+            background-color: #6c757d;
+            display: block;
         }
-        .action-btn:hover {
-            background-color: #5c6bc0;
+        #cancel-btn-inline:hover {
+             background-color: #5a6268;
         }
 
         /* 屬性區塊樣式 */
@@ -183,7 +248,7 @@
             background-color: transparent;
             border: none;
             border-radius: 4px;
-            margin-top: 10px;
+            margin-bottom: 30%; /* ADJUSTED: 移除頂部邊距，拉近上方的動作條 */
             padding: 0;
             width: 100%;
             display: none;
@@ -193,6 +258,7 @@
         .property-area.visible {
             display: block;
         }
+        /* 統一屬性區內的行高 */
         .property-area > div {
             display: flex;
             align-items: center;
@@ -209,16 +275,15 @@
             border-radius: 4px;
             border: 1px solid #ccc;
         }
-        .confirm-btn {
-            margin-top: 10px;
-        }
         
-        /* 新增：狀態按鈕樣式 */
+        /* 新增：狀態/位置按鈕容器樣式 */
         .status-buttons-container {
             display: flex;
             flex-wrap: wrap;
             gap: 5px;
+            flex: 1; /* 讓按鈕容器盡可能佔用空間 */
         }
+        /* 狀態/位置按鈕樣式 */
         .status-button {
             background-color: #e0e0e0;
             color: #333;
@@ -227,6 +292,7 @@
             padding: 6px 10px;
             cursor: pointer;
             transition: all 0.2s;
+            white-space: nowrap;
         }
         .status-button.active {
             background-color: #3f51b5;
@@ -253,7 +319,7 @@
             background: none;
             border: none;
             color: white;
-            font-size: 16px;
+            font-size: 20px;
             cursor: pointer;
             padding: 10px 15px;
             width: 100%;
@@ -266,7 +332,7 @@
         .panel-content {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 5px;
             max-height: 0;
             overflow: hidden;
             padding: 0;
@@ -282,22 +348,22 @@
             background: none;
             border: none;
             color: white;
-            font-size: 24px;
+            font-size: 20px;
             cursor: pointer;
-            text-align: right;
             padding: 0 10px;
         }
         
         /* 一般按鈕樣式 */
         .toggle-btn {
-            background-color: #5c6bc0;
+            background-color: #3f51b5;
             color: white;
             border: none;
-            border-radius: 4px;
+            border-radius: 0px;
             padding: 10px 15px;
             cursor: pointer;
             transition: background-color 0.2s, color 0.2s;
             width: 100%;
+            font-size: 20px;
         }
 
         .toggle-btn:hover {
@@ -317,25 +383,27 @@
         .category-buttons {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 0px;
             width: 100%;
         }
         .category-button {
-            background-color: #5c6bc0;
+            background-color: #3f51b5;
             color: white;
-            border: 1px solid #5c6bc0;
-            border-radius: 4px;
+            border: 1px solid #3f51b5;
+            border-radius: 0px;
             padding: 8px 12px;
             cursor: pointer;
             transition: background-color 0.2s, color 0.2s;
             text-align: center;
+            font-size: 20px;
         }
         .category-button.active {
             background-color: #fff;
             color: #3f51b5;
         }
         .category-button:hover {
-            background-color: #7986cb;
+            background-color: #3f51b5;
+            color: #fff;
         }
 
         /* 拖曳目的地視覺回饋 */
@@ -406,7 +474,7 @@
     <div class="floating-panel">
         <button class="panel-toggle-btn">檢視 ▲</button>
         <div class="panel-content">
-            <button class="collapse-btn">▼</button>
+            <button class="collapse-btn">收合 ▼</button>
             <button class="toggle-btn" id="toggle-all-btn">全部展開</button>
             
             <div class="category-buttons" id="category-buttons-container"></div>
@@ -417,12 +485,36 @@
     <div id="object-info-panel" class="object-panel">
         <div>
             <h4 id="panel-title"></h4>
+            <!-- 內容預覽區 -->
             <div id="panel-content" class="panel-body"></div>
         </div>
+        
+        <!-- NEW: 提高的動作條容器 (位於內容預覽區下方，屬性修改區上方) -->
+        <div id="raised-action-bar-container" class="action-bar-container">
+            <div class="fine-line-raised"></div>
+            
+            <!-- 統一動作條: 使用重疊確保按鈕位置恆定 -->
+            <div id="panel-action-bar">
+                
+                <!-- Slot 1 (Primary Action: 更改 / 確定) -->
+                <div id="primary-action-slot" class="action-slot primary-slot">
+                    <button id="change-btn" class="action-btn">更改</button>
+                    <button id="confirm-btn" class="action-btn" style="display: none;">確定</button>
+                </div>
 
-        <!-- 新增: 屬性區塊 -->
+                <!-- Slot 2 (Cancel Action: × / 取消) -->
+                <div id="cancel-action-slot" class="action-slot cancel-slot">
+                    <button id="close-btn-inline" class="action-btn">&times;</button>
+                    <button id="cancel-btn-inline" class="action-btn" style="display: none;">取消</button>
+                </div>
+            </div>
+        </div>
+        <!-- END: 提高的動作條容器 -->
+
+        <!-- 屬性區塊與動作區 (現在只包含屬性區塊，不含動作條) -->
         <div class="panel-actions">
-            <button id="change-btn" class="action-btn">更改</button>
+            
+            <!-- 登載區塊 (表單內容) -->
             <div id="property-area" class="property-area">
                 <div>
                     <span class="label">代稱：</span>
@@ -432,15 +524,24 @@
                     <span class="label">狀態：</span>
                     <div id="status-buttons-container" class="status-buttons-container"></div>
                 </div>
+                
+                <!-- NEW ROW: 位置 (Zone) -->
+                <div>
+                    <span class="label">位置：</span>
+                    <div id="zone-buttons-container" class="status-buttons-container" style="flex: 1;">
+                        <!-- Zone buttons will be inserted here -->
+                    </div>
+                </div>
+                
+                <!-- 註記列：現在單獨佔用一行 -->
                 <div>
                     <span class="label">註記：</span>
                     <input type="text" id="note-input" class="input-field">
                 </div>
-                <button id="confirm-btn" class="action-btn confirm-btn">確定</button>
             </div>
-        </div>
 
-        <button class="close-btn">&times;</button>
+            <!-- 原來的 #panel-action-bar 已被移到上方 -->
+        </div>
     </div>
 
     <!-- 訊息提示框 -->
@@ -461,19 +562,27 @@
             const objectInfoPanel = document.getElementById('object-info-panel');
             const objectPanelTitle = document.getElementById('panel-title');
             const objectPanelContent = document.getElementById('panel-content');
-            const objectPanelCloseBtn = document.querySelector('.object-panel .close-btn');
+            
+            // 統一動作條按鈕 (從父容器中抓取)
+            const primaryActionSlot = document.getElementById('primary-action-slot');
+            const cancelActionSlot = document.getElementById('cancel-action-slot');
+            
+            const changeBtn = document.getElementById('change-btn');
+            const closeBtnInline = document.getElementById('close-btn-inline');
+            const confirmBtn = document.getElementById('confirm-btn');
+            const cancelBtnInline = document.getElementById('cancel-btn-inline'); 
+            
             const aliasInput = document.getElementById('alias-input');
             const noteInput = document.getElementById('note-input');
             const messageBox = document.getElementById('message-box');
             const refreshButton = document.getElementById('refresh-button');
 
-            const changeBtn = document.getElementById('change-btn');
             const propertyArea = document.getElementById('property-area');
-            const confirmBtn = document.getElementById('confirm-btn');
             const statusButtonsContainer = document.getElementById('status-buttons-container');
+            const zoneButtonsContainer = document.getElementById('zone-buttons-container'); 
 
             let draggedItem = null;
-            let zones = [];
+            let zones = []; 
             let allObjects = [];
             let statusOptions = [];
             let autoRefreshInterval = null;
@@ -485,7 +594,6 @@
             
             // 啟動/重啟自動更新計時器
             function startAutoRefresh() {
-                // 如果已經有計時器，先清除
                 if (autoRefreshInterval) {
                     clearInterval(autoRefreshInterval);
                 }
@@ -545,7 +653,6 @@
                     });
                 }
                 
-                // 修正：在恢復類別按鈕狀態後，立即同步更新物件的顯示狀態
                 filterObjects();
 
                 // 恢復面板狀態
@@ -559,20 +666,21 @@
                     }
                     
                     if (state.openPanelObjectId) {
-                        // 使用 setTimeout 等待 DOM 渲染完成
                         setTimeout(() => {
                             const object = document.querySelector(`.object[data-id="${state.openPanelObjectId}"]`);
                             if (object) {
-                                // 觸發標準點擊事件，讓面板開啟並載入資料
                                 object.click();
                                 
                                 // 根據儲存的狀態覆蓋屬性區的預設開合狀態
                                 if (state.propertyAreaVisible) {
+                                    // 進入內容更改狀態
                                     changeBtn.style.display = 'none';
+                                    closeBtnInline.style.display = 'none';
+                                    
+                                    confirmBtn.style.display = 'block';
+                                    cancelBtnInline.style.display = 'block'; 
+
                                     propertyArea.classList.add('visible');
-                                } else {
-                                    changeBtn.style.display = 'block';
-                                    propertyArea.classList.remove('visible');
                                 }
                             }
                         }, 100);
@@ -582,7 +690,7 @@
 
             // 整合所有資料載入邏輯到一個函式中
             async function fetchSpreadsheetData() {
-                refreshButton.classList.add('loading'); // 顯示載入動畫
+                refreshButton.classList.add('loading'); 
                 
                 try {
                     const zonesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!D2:D?key=${API_KEY}`;
@@ -604,7 +712,6 @@
 
                     statusOptions = statusesData.values ? statusesData.values.flat() : [];
 
-                    // 重新渲染前先清空
                     zonesContainer.innerHTML = '';
                     allObjects = [];
 
@@ -612,14 +719,13 @@
                     renderCategories(categoriesData.values);
                     renderObjects(objectsData.values);
                     
-                    // 重新渲染後載入之前儲存的狀態
                     loadState();
 
                 } catch (error) {
                     console.error("無法載入試算表資料:", error);
                     showMessage("載入資料失敗。請檢查您的API金鑰或試算表ID。", 'red');
                 } finally {
-                    refreshButton.classList.remove('loading'); // 隱藏載入動畫
+                    refreshButton.classList.remove('loading'); 
                 }
             }
             
@@ -679,7 +785,7 @@
                 if (!objectsValues || objectsValues.length === 0) return;
                 
                 objectsValues.forEach((rowData, index) => {
-                    if (rowData.length < 7) return; // 確保資料完整
+                    if (rowData.length < 7) return; 
                     
                     const objectDiv = document.createElement('div');
                     objectDiv.className = 'object';
@@ -736,7 +842,7 @@
                         });
                         zone.classList.toggle('expanded');
                         updateToggleButton();
-                        saveState(); // 點擊時儲存狀態
+                        saveState(); 
                     });
 
                     const dropAreas = [header, zone.querySelector('.zone-content')];
@@ -758,11 +864,17 @@
                             dropArea.classList.remove('drag-over');
                             if (draggedItem) {
                                 zone.querySelector('.zone-content').appendChild(draggedItem);
-                                const id = draggedItem.getAttribute('data-id');
+                                // const id = draggedItem.getAttribute('data-id'); // Not used
                                 const rowIndex = draggedItem.getAttribute('data-row-index');
                                 const newZone = zone.querySelector('h3').textContent;
-                                updateObjectData(rowIndex, { zone: newZone });
-                                saveState(); // 拖放時儲存狀態
+                                
+                                // 1. 更新後端 (Apps Script)
+                                updateObjectData(rowIndex, { zone: newZone }); // 傳送 Zone 更改
+                                
+                                // 2. 更新 DOM 屬性，確保在下次資料更新前，面板能顯示正確的 Zone
+                                draggedItem.setAttribute('data-zone', newZone); 
+                                
+                                saveState(); 
                             }
                         });
                     });
@@ -799,11 +911,12 @@
                         item.setAttribute('data-panel-open', !isOpen);
 
                         if (!isOpen) {
-                            stopAutoRefresh(); // 停止自動更新
+                            // 進入 內容預覽狀態 (Preview State)
+                            stopAutoRefresh(); 
                             const name = item.getAttribute('data-name');
                             const id = item.getAttribute('data-id');
                             const category = item.getAttribute('data-category');
-                            const zone = item.getAttribute('data-zone');
+                            const zone = item.getAttribute('data-zone'); 
                             const status = item.getAttribute('data-status');
                             const note = item.getAttribute('data-note');
                             const alias = item.getAttribute('data-alias');
@@ -820,20 +933,25 @@
                             `;
                             objectInfoPanel.classList.add('visible');
                             
+                            // 顯示 Preview State 按鈕 (使用 Block/Flex 覆蓋樣式中的預設 display:none)
                             changeBtn.style.display = 'block';
+                            closeBtnInline.style.display = 'flex';
+                            
+                            // 隱藏 Change State 元素
+                            confirmBtn.style.display = 'none';
+                            cancelBtnInline.style.display = 'none'; 
                             propertyArea.classList.remove('visible');
                             
                             aliasInput.value = alias;
                             noteInput.value = note;
 
-                            renderPropertyArea(status);
+                            renderPropertyArea(status, zone);
                             
                             objectInfoPanel.currentObject = item;
-                            saveState(); // 面板開啟時儲存狀態
+                            saveState(); 
                         } else {
-                            objectInfoPanel.classList.remove('visible');
-                            startAutoRefresh(); // 重新啟動自動更新
-                            saveState(); // 面板關閉時儲存狀態
+                            closeObjectPanel(); 
+                            saveState(); 
                         }
                     });
                 });
@@ -845,7 +963,7 @@
                     button.addEventListener('click', () => {
                         button.classList.toggle('active');
                         filterObjects();
-                        saveState(); // 類別按鈕點擊時儲存狀態
+                        saveState(); 
                     });
                 });
             }
@@ -880,13 +998,13 @@
 
             panelToggleBtn.addEventListener('click', () => {
                 floatingPanel.classList.add('expanded');
-                stopAutoRefresh(); // 新增：展開導覽面板時停止自動更新
-                saveState(); // 導覽面板開合時儲存狀態
+                stopAutoRefresh(); 
+                saveState(); 
             });
             collapseBtn.addEventListener('click', () => {
                 floatingPanel.classList.remove('expanded');
-                startAutoRefresh(); // 新增：收合導覽面板時重新啟動自動更新
-                saveState(); // 導覽面板開合時儲存狀態
+                startAutoRefresh(); 
+                saveState(); 
             });
 
             toggleAllBtn.addEventListener('click', () => {
@@ -896,7 +1014,7 @@
                     zones.forEach(zone => zone.classList.add('expanded'));
                 }
                 updateToggleButton();
-                saveState(); // 點擊時儲存狀態
+                saveState(); 
             });
             
             function closeObjectPanel() {
@@ -905,15 +1023,28 @@
                     openPanel.setAttribute('data-panel-open', 'false');
                 }
                 objectInfoPanel.classList.remove('visible');
-                startAutoRefresh(); // 重新啟動自動更新
-                saveState(); // 面板關閉時儲存狀態
+                
+                // 重設按鈕狀態為隱藏
+                changeBtn.style.display = 'none';
+                closeBtnInline.style.display = 'none';
+                confirmBtn.style.display = 'none';
+                cancelBtnInline.style.display = 'none'; 
+                
+                propertyArea.classList.remove('visible');
+                
+                startAutoRefresh(); 
+                saveState(); 
             }
 
-            objectPanelCloseBtn.addEventListener('click', closeObjectPanel);
-            
+            // 綁定關閉/取消按鈕的事件
+            closeBtnInline.addEventListener('click', closeObjectPanel); // Preview State 的 X 
+            cancelBtnInline.addEventListener('click', closeObjectPanel); // Change State 的 取消
+
             document.addEventListener('click', (e) => {
                 if (objectInfoPanel.classList.contains('visible') && !objectInfoPanel.contains(e.target)) {
-                    closeObjectPanel();
+                    if (!e.target.closest('.object')) {
+                         closeObjectPanel();
+                    }
                 }
             });
 
@@ -924,9 +1055,18 @@
             });
             
             changeBtn.addEventListener('click', () => {
+                // 進入 內容更改狀態 (Change State)
+                
+                // 隱藏 Preview State 按鈕
                 changeBtn.style.display = 'none';
-                propertyArea.classList.add('visible');
-                saveState(); // 屬性區開合時儲存狀態
+                closeBtnInline.style.display = 'none'; 
+                
+                // 顯示 Change State 按鈕
+                confirmBtn.style.display = 'block';
+                cancelBtnInline.style.display = 'block'; 
+
+                propertyArea.classList.add('visible'); // 顯示登載區
+                saveState(); 
             });
 
             confirmBtn.addEventListener('click', () => {
@@ -937,12 +1077,17 @@
                 const newAlias = aliasInput.value;
                 const newNote = noteInput.value;
                 const newStatus = statusButtonsContainer.querySelector('.status-button.active')?.textContent || '';
+                const newZone = zoneButtonsContainer.querySelector('.status-button.active')?.textContent || ''; // 讀取選取的 Zone
+
+                const oldZone = currentObject.getAttribute('data-zone'); // 獲取舊的 Zone
                 
                 const statusToSend = newStatus;
 
+                // 2. 更新 DOM 中狀態、代稱、註記和位置 (Zone) 的顯示
                 currentObject.setAttribute('data-alias', newAlias);
                 currentObject.setAttribute('data-note', newNote);
                 currentObject.setAttribute('data-status', newStatus);
+                currentObject.setAttribute('data-zone', newZone); // 更新物件的 Zone 屬性
                 currentObject.innerHTML = `${currentObject.getAttribute('data-name')}<span>${newAlias}</span>`;
 
                 currentObject.classList.remove('corrupted', 'reserved');
@@ -952,19 +1097,32 @@
                     currentObject.classList.add('reserved');
                 }
 
+                // 3. 提交所有更改的資料 (包含 Zone)
                 updateObjectData(rowIndex, {
                     alias: newAlias,
                     status: statusToSend,
-                    note: newNote
+                    note: newNote,
+                    zone: newZone // <-- 新增 Zone 資料，對應總表!C2:C
                 });
+                
+                // 4. 如果 Zone 改變，需要將物件移動到新的 Zone 容器中
+                if (oldZone !== newZone) {
+                    const targetZone = zones.find(zone => {
+                        return zone.querySelector('h3').textContent === newZone;
+                    });
+                    if (targetZone) {
+                         // 僅移動 DOM 元素，不重新觸發後台寫入
+                         targetZone.querySelector('.zone-content').appendChild(currentObject);
+                    }
+                }
 
-                propertyArea.classList.remove('visible');
-                changeBtn.style.display = 'block';
-                closeObjectPanel();
-                saveState(); // 確認更新時儲存狀態
+                closeObjectPanel(); 
+                saveState(); 
             });
 
-            function renderPropertyArea(currentStatus) {
+            // --- 狀態/位置按鈕的渲染邏輯 ---
+            
+            function renderStatusButtons(currentStatus) {
                 statusButtonsContainer.innerHTML = '';
                 statusOptions.forEach(status => {
                     const button = document.createElement('button');
@@ -977,7 +1135,8 @@
                         if (status === '暫代' || status === '儲備') {
                             button.style.backgroundColor = '#ff9900';
                             button.style.color = 'white';
-                        } else if (status.includes('損壞')) {
+                        }
+                        else if (status.includes('損壞')) {
                             button.style.backgroundColor = 'red';
                             button.style.color = 'white';
                         }
@@ -1004,6 +1163,39 @@
                     statusButtonsContainer.appendChild(button);
                 });
             }
+            
+            function renderZoneButtons(currentZone) {
+                zoneButtonsContainer.innerHTML = '';
+                
+                const zoneNames = zones.map(zone => zone.querySelector('h3').textContent);
+                
+                zoneNames.forEach(zoneName => {
+                    const button = document.createElement('button');
+                    button.textContent = zoneName;
+                    button.className = 'status-button zone-button'; 
+                    
+                    if (zoneName === currentZone) {
+                        button.classList.add('active');
+                    }
+
+                    button.addEventListener('click', () => {
+                        // 確保只有一個 Zone 按鈕被選中
+                        Array.from(zoneButtonsContainer.children).forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        button.classList.add('active');
+                        // 此處不進行即時資料寫入，等待「確定」按鈕
+                    });
+
+                    zoneButtonsContainer.appendChild(button);
+                });
+            }
+            
+            function renderPropertyArea(currentStatus, currentZone) {
+                renderStatusButtons(currentStatus);
+                renderZoneButtons(currentZone);
+            }
+            // --- 狀態/位置按鈕的渲染邏輯結束 ---
 
             async function updateObjectData(rowIndex, data) {
                 if (APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) {
@@ -1031,7 +1223,6 @@
                 }
             }
             
-            // 首次載入資料並啟動自動更新
             fetchSpreadsheetData().then(() => {
                 startAutoRefresh();
             });
