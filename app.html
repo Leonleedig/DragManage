@@ -8,6 +8,11 @@
     <link rel="icon" type="image/x-icon" href="icon-r.png">
     <link rel="icon" type="image/png" sizes="192x192" href="icon-r.png">
     <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
+
+    <!-- PWA 核心區塊 1: 連結 Web App Manifest 資訊清單 (此為新增區塊) -->
+    <link rel="manifest" href="manifest.json">
+    <!-- PWA 核心區塊 1 結束 -->
+    
     <style>
         /* 基本樣式 */
         body {
@@ -1231,5 +1236,24 @@
             });
         });
     </script>
+    
+    <!-- PWA 核心區塊 2: Service Worker 註冊腳本 (此為新增區塊) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // 註冊 Service Worker (位於同目錄下的 sw.js)
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker 註冊成功:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('Service Worker 註冊失敗:', error);
+                    });
+            });
+        } else {
+            console.log('瀏覽器不支援 Service Worker.');
+        }
+    </script>
+    <!-- PWA 核心區塊 2 結束 -->
 </body>
 </html>
