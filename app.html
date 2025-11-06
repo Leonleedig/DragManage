@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>影音器材列表</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="icon-r.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-r.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
+    <style>
+        /* 基本樣式 */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        /* 區域樣式 */
+        .zone {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .zone-header {
+            padding: 5px 20px;
+            background-color: #eef2f5;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .zone-header h3 {
+            margin: 0;
+            color: #333;
+            flex-grow: 1;
+        }
+        
+        .zone-toggle-icon {
+            font-size: 16px;
+            margin-left: 10px;
+            transition: transform 0.3s ease;
+        }
+        .zone.expanded .zone-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .zone-content {
+            padding: 5px;
+            border-top: 1px solid #ddd;
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out, padding 0.4s ease-out;
+        }
+
+        .zone.expanded .zone-content {
+            max-height: 20000px; /* 將最大高度設為一個大數值，確保能容納所有物件 */
+            padding: 10px;
+        }
+
+        /* 物件樣式 */
+        .object {
+            position: relative;
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 5px;
+            text-align: center;
+            font-size: 20px;
+            cursor: grab;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.4s ease;
+             /* 修正 iPhone 長按選取問題 START */
+            user-select: none;
+            -webkit-user-select: none; /* 針對 WebKit 核心 (如 Safari) */
+            touch-action: manipulation; /* 幫助觸控互動響應 */
+            /* 修正 iPhone 長按選取問題 END */
+        }
+        .object[data-panel-open="false"] {
+            cursor: pointer;
+        }
+        .object[data-panel-open="true"] {
+            cursor: default;
+        }
+        .object.hidden {
+            display: none;
+        }
+        .object.corrupted {
+            background-color: #f44336; /* 背景 */
+            color: white; /* 文字 */
+        }
+        .object.corrupted:hover {
+            background-color: #d32f2f;
+        }
+
+        .object.reserved {
+            background-color: #ff9900;
+            color: white;
+        }
+        .object.reserved:hover {
+            background-color: #e68a00;
+        }
+        
+        .object.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        
+        /* 物件資訊面板樣式 */
+        .object-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            /* 調整面板尺寸為95vh */
+            transform: translate(-50%, -50%);
+            width: 95vw;
+            height: 95vh;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            padding: 20px;
+            z-index: 1001;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .object-panel h4 {
+            margin-top: 0;
+        }
+        .object-panel.visible {
+            display: flex;
+        }
+        .object-panel .panel-body {
+            flex-grow: 1;
+            overflow-y: auto;
+            cursor: copy;
+            padding-bottom: 5px;
+        }
+
+        /* *** NEW: 提高的動作條容器樣式 (實現細線與按鈕懸浮覆蓋) *** */
+        .action-bar-container {
+            position: relative;
+            height: 40px; /* 容納按鈕的高度 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 5px; /* ADJUSTED: 減少下方邊距，拉近下方的登載區 */
+            margin-top: 5px; /* 與上方的內容區隔開 */
+            width: 100%;
+        }
+        
+        /* NEW: 提高後的細線樣式 */
+        .fine-line-raised {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background-color: #e0e0e0;
+            z-index: 10;
+        }
+
+        /* 動作按鈕群組（底部統一按鈕）樣式 */
+        #panel-action-bar {
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            position: relative; 
+            z-index: 20; /* 確保按鈕覆蓋細線 */
+            gap: 20px; /* 按鈕間距 */
+            padding: 0 10px; /* 給按鈕留出遮蓋細線的空間 */
+            border-radius: 999px; /* 保持按鈕組的圓角視覺效果 */
+        }
+        /* *** END: 提高的動作條容器樣式 *** */
+
+        /* 動作槽樣式 (保證位置一致性) - 保持不變 */
+        .action-slot {
+            position: relative;
+            height: 40px; /* 固定高度 */
+        }
+        .primary-slot {
+            width: 100px; /* 容納更改/確定按鈕的寬度 */
+        }
+        .cancel-slot {
+            width: 100px; /* 容納 X/取消按鈕的寬度 */
+        }
+        
+        /* 動作按鈕共用樣式 (用於重疊) */
+        .action-slot button {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%; /* 填滿整個槽的寬度 */
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 16px;
+            color: white;
+            border-radius: 4px;
+        }
+        
+        /* 更改/確定按鈕樣式 */
+        #change-btn, #confirm-btn, #cancel-btn-inline {
+            background-color: #3f51b5;
+            padding: 8px 16px;
+            display: block; /* 預設為 block */
+        }
+        
+        #change-btn:hover, #confirm-btn:hover {
+            background-color: #5c6bc0;
+        }
+        
+        /* X 關閉按鈕的特殊樣式 (圓形、紅色) */
+        #close-btn-inline {
+            width: 40px; /* 圓形尺寸 */
+            height: 40px;
+            padding: 0;
+            border-radius: 50%;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            font-size: 20px;
+            background-color: #f44336; /* 顯眼紅色 */
+            
+            /* 將 X 按鈕靠右對齊 (在 100px 的槽內) */
+            left: auto;
+            right: 0;
+            width: 40px; /* 覆蓋 width: 100% */
+        }
+
+        /* 取消按鈕的特殊顏色 (與確定/更改區分) */
+        #cancel-btn-inline {
+            background-color: #6c757d;
+            display: block;
+        }
+        #cancel-btn-inline:hover {
+             background-color: #5a6268;
+        }
+
+        /* 屬性區塊樣式 */
+        .property-area {
+            background-color: transparent;
+            border: none;
+            border-radius: 4px;
+            margin-bottom: 30%; /* ADJUSTED: 移除頂部邊距，拉近上方的動作條 */
+            padding: 0;
+            width: 100%;
+            display: none;
+            box-sizing: border-box;
+            text-align: left;
+        }
+        .property-area.visible {
+            display: block;
+        }
+        /* 統一屬性區內的行高 */
+        .property-area > div {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .property-area .label {
+            white-space: nowrap;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .property-area .input-field {
+            flex: 1;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+        
+        /* 新增：狀態/位置按鈕容器樣式 */
+        .status-buttons-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            flex: 1; /* 讓按鈕容器盡可能佔用空間 */
+        }
+        /* 狀態/位置按鈕樣式 */
+        .status-button {
+            background-color: #e0e0e0;
+            color: #333;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 6px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .status-button.active {
+            background-color: #3f51b5;
+            color: white;
+        }
+
+        /* 導航面板樣式 */
+        .floating-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #3f51b5;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .panel-toggle-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 10px 15px;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+        .floating-panel.expanded .panel-toggle-btn {
+            display: none;
+        }
+
+        .panel-content {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            max-height: 0;
+            overflow: hidden;
+            padding: 0;
+            transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
+            width: 100%;
+        }
+        .floating-panel.expanded .panel-content {
+            max-height: 300px;
+            padding: 10px;
+        }
+        
+        .panel-content .collapse-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 10px;
+        }
+        
+        /* 一般按鈕樣式 */
+        .toggle-btn {
+            background-color: #3f51b5;
+            color: white;
+            border: none;
+            border-radius: 0px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            width: 100%;
+            font-size: 20px;
+        }
+
+        .toggle-btn:hover {
+            background-color: #7986cb;
+        }
+        
+        /* 反白按鈕樣式（選中狀態） */
+        .toggle-btn.white-bg {
+            background-color: #fff;
+            color: #3f51b5;
+        }
+        .toggle-btn.white-bg:hover {
+            background-color: #e0e0e0;
+        }
+
+        /* 分類按鈕容器 */
+        .category-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0px;
+            width: 100%;
+        }
+        .category-button {
+            background-color: #3f51b5;
+            color: white;
+            border: 1px solid #3f51b5;
+            border-radius: 0px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            text-align: center;
+            font-size: 20px;
+        }
+        .category-button.active {
+            background-color: #fff;
+            color: #3f51b5;
+        }
+        .category-button:hover {
+            background-color: #3f51b5;
+            color: #fff;
+        }
+
+        /* 拖曳目的地視覺回饋 */
+        .zone-header.drag-over, .zone-content.drag-over {
+            background-color: #e0e0e0;
+            border: 2px solid #999;
+        }
+        
+        /* 訊息提示框樣式 */
+        #message-box {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 2000;
+            display: none;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        /* 重新整理按鈕樣式 - 已修正為單一且隱藏 */
+        .refresh-button {
+            display: flex;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #fff;
+            color: #3f51b5;
+            border: 2px solid #3f51b5;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            z-index: 1000;
+        }
+        .refresh-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+        }
+        .refresh-button.loading {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    
+    <div id="zones-container"></div>
+    
+    <!-- 浮動重新整理按鈕 (暫時隱藏) -->
+    <button class="refresh-button" id="refresh-button" style="display: none;">
+        <span class="material-icons">refresh</span>
+    </button>
+    
+    <!-- 浮動導航面板 -->
+    <div class="floating-panel">
+        <button class="panel-toggle-btn">檢視 ▲</button>
+        <div class="panel-content">
+            <button class="collapse-btn">收合 ▼</button>
+            <button class="toggle-btn" id="toggle-all-btn">全部展開</button>
+            
+            <div class="category-buttons" id="category-buttons-container"></div>
+        </div>
+    </div>
+
+    <!-- 浮動的物件資訊面板 -->
+    <div id="object-info-panel" class="object-panel">
+        <div>
+            <h4 id="panel-title"></h4>
+            <!-- 內容預覽區 -->
+            <div id="panel-content" class="panel-body"></div>
+        </div>
+        
+        <!-- NEW: 提高的動作條容器 (位於內容預覽區下方，屬性修改區上方) -->
+        <div id="raised-action-bar-container" class="action-bar-container">
+            <div class="fine-line-raised"></div>
+            
+            <!-- 統一動作條: 使用重疊確保按鈕位置恆定 -->
+            <div id="panel-action-bar">
+                
+                <!-- Slot 1 (Primary Action: 更改 / 確定) -->
+                <div id="primary-action-slot" class="action-slot primary-slot">
+                    <button id="change-btn" class="action-btn">更改</button>
+                    <button id="confirm-btn" class="action-btn" style="display: none;">確定</button>
+                </div>
+
+                <!-- Slot 2 (Cancel Action: × / 取消) -->
+                <div id="cancel-action-slot" class="action-slot cancel-slot">
+                    <button id="close-btn-inline" class="action-btn">&times;</button>
+                    <button id="cancel-btn-inline" class="action-btn" style="display: none;">取消</button>
+                </div>
+            </div>
+        </div>
+        <!-- END: 提高的動作條容器 -->
+
+        <!-- 屬性區塊與動作區 (現在只包含屬性區塊，不含動作條) -->
+        <div class="panel-actions">
+            
+            <!-- 登載區塊 (表單內容) -->
+            <div id="property-area" class="property-area">
+                <div>
+                    <span class="label">代稱：</span>
+                    <input type="text" id="alias-input" class="input-field">
+                </div>
+                <div>
+                    <span class="label">狀態：</span>
+                    <div id="status-buttons-container" class="status-buttons-container"></div>
+                </div>
+                
+                <!-- NEW ROW: 位置 (Zone) -->
+                <div>
+                    <span class="label">位置：</span>
+                    <div id="zone-buttons-container" class="status-buttons-container" style="flex: 1;">
+                        <!-- Zone buttons will be inserted here -->
+                    </div>
+                </div>
+                
+                <!-- 註記列：現在單獨佔用一行 -->
+                <div>
+                    <span class="label">註記：</span>
+                    <input type="text" id="note-input" class="input-field">
+                </div>
+            </div>
+
+            <!-- 原來的 #panel-action-bar 已被移到上方 -->
+        </div>
+    </div>
+
+    <!-- 訊息提示框 -->
+    <div id="message-box"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const API_KEY = 'AIzaSyDrKPFmjLr2-QmF9vf7nFqkC75z0M2I_B8';
+            const SPREADSHEET_ID = '1UGZQa5FQY-3CaTtC7-8LfJz70sDX1UbkbVDAGciEZjQ';
+            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyWhG6pKy13HJ7wbk7uwHKRgo48rjA4_FSQ31T3oD-nzzAWLion1rnQVTEMzosE8Hx-rw/exec';
+            
+            const zonesContainer = document.getElementById('zones-container');
+            const categoryButtonsContainer = document.getElementById('category-buttons-container');
+            const toggleAllBtn = document.getElementById('toggle-all-btn');
+            const floatingPanel = document.querySelector('.floating-panel');
+            const panelToggleBtn = document.querySelector('.panel-toggle-btn');
+            const collapseBtn = document.querySelector('.panel-content .collapse-btn');
+            const objectInfoPanel = document.getElementById('object-info-panel');
+            const objectPanelTitle = document.getElementById('panel-title');
+            const objectPanelContent = document.getElementById('panel-content');
+            
+            // 統一動作條按鈕 (從父容器中抓取)
+            const primaryActionSlot = document.getElementById('primary-action-slot');
+            const cancelActionSlot = document.getElementById('cancel-action-slot');
+            
+            const changeBtn = document.getElementById('change-btn');
+            const closeBtnInline = document.getElementById('close-btn-inline');
+            const confirmBtn = document.getElementById('confirm-btn');
+            const cancelBtnInline = document.getElementById('cancel-btn-inline'); 
+            
+            const aliasInput = document.getElementById('alias-input');
+            const noteInput = document.getElementById('note-input');
+            const messageBox = document.getElementById('message-box');
+            const refreshButton = document.getElementById('refresh-button');
+
+            const propertyArea = document.getElementById('property-area');
+            const statusButtonsContainer = document.getElementById('status-buttons-container');
+            const zoneButtonsContainer = document.getElementById('zone-buttons-container'); 
+
+            let draggedItem = null;
+            let zones = []; 
+            let allObjects = [];
+            let statusOptions = [];
+            let autoRefreshInterval = null;
+
+            // 定義本地儲存鍵值
+            const LOCAL_STORAGE_ZONE_KEY = 'zoneState';
+            const LOCAL_STORAGE_CATEGORY_KEY = 'categoryState';
+            const LOCAL_STORAGE_PANEL_KEY = 'panelState';
+            
+            // 啟動/重啟自動更新計時器
+            function startAutoRefresh() {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                }
+                autoRefreshInterval = setInterval(fetchSpreadsheetData, 5000);
+            }
+
+            // 停止自動更新計時器
+            function stopAutoRefresh() {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+
+            // 儲存所有相關狀態到本地儲存
+            function saveState() {
+                // 儲存區域展開狀態
+                const expandedZones = Array.from(document.querySelectorAll('.zone.expanded')).map(zone => zone.id);
+                localStorage.setItem(LOCAL_STORAGE_ZONE_KEY, JSON.stringify(expandedZones));
+
+                // 儲存類別按鈕狀態
+                const activeCategories = Array.from(document.querySelectorAll('.category-button.active')).map(btn => btn.getAttribute('data-category'));
+                localStorage.setItem(LOCAL_STORAGE_CATEGORY_KEY, JSON.stringify(activeCategories));
+                
+                // 儲存導航面板狀態
+                localStorage.setItem(LOCAL_STORAGE_PANEL_KEY, JSON.stringify({
+                    expanded: floatingPanel.classList.contains('expanded'),
+                    openPanelObjectId: document.querySelector('.object[data-panel-open="true"]')?.getAttribute('data-id') || null,
+                    propertyAreaVisible: propertyArea.classList.contains('visible')
+                }));
+            }
+
+            // 從本地儲存載入並恢復網頁狀態
+            function loadState() {
+                // 恢復區域展開狀態
+                const savedZones = localStorage.getItem(LOCAL_STORAGE_ZONE_KEY);
+                if (savedZones) {
+                    const expandedZones = JSON.parse(savedZones);
+                    expandedZones.forEach(zoneId => {
+                        const zone = document.getElementById(zoneId);
+                        if (zone) {
+                            zone.classList.add('expanded');
+                        }
+                    });
+                }
+                
+                // 恢復類別按鈕狀態
+                const savedCategories = localStorage.getItem(LOCAL_STORAGE_CATEGORY_KEY);
+                if (savedCategories) {
+                    const activeCategories = JSON.parse(savedCategories);
+                    document.querySelectorAll('.category-button').forEach(btn => {
+                        if (activeCategories.includes(btn.getAttribute('data-category'))) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    });
+                }
+                
+                filterObjects();
+
+                // 恢復面板狀態
+                const savedPanelState = localStorage.getItem(LOCAL_STORAGE_PANEL_KEY);
+                if (savedPanelState) {
+                    const state = JSON.parse(savedPanelState);
+                    if (state.expanded) {
+                        floatingPanel.classList.add('expanded');
+                    } else {
+                        floatingPanel.classList.remove('expanded');
+                    }
+                    
+                    if (state.openPanelObjectId) {
+                        setTimeout(() => {
+                            const object = document.querySelector(`.object[data-id="${state.openPanelObjectId}"]`);
+                            if (object) {
+                                object.click();
+                                
+                                // 根據儲存的狀態覆蓋屬性區的預設開合狀態
+                                if (state.propertyAreaVisible) {
+                                    // 進入內容更改狀態
+                                    changeBtn.style.display = 'none';
+                                    closeBtnInline.style.display = 'none';
+                                    
+                                    confirmBtn.style.display = 'block';
+                                    cancelBtnInline.style.display = 'block'; 
+
+                                    propertyArea.classList.add('visible');
+                                }
+                            }
+                        }, 100);
+                    }
+                }
+            }
+
+            // 整合所有資料載入邏輯到一個函式中
+            async function fetchSpreadsheetData() {
+                refreshButton.classList.add('loading'); 
+                
+                try {
+                    const zonesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!D2:D?key=${API_KEY}`;
+                    const categoriesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!C2:C?key=${API_KEY}`;
+                    const objectsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/總表!A2:G?key=${API_KEY}`;
+                    const statusesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!E2:E?key=${API_KEY}`;
+                    
+                    const [zonesRes, categoriesRes, objectsRes, statusesRes] = await Promise.all([
+                        fetch(zonesUrl),
+                        fetch(categoriesUrl),
+                        fetch(objectsUrl),
+                        fetch(statusesUrl)
+                    ]);
+
+                    const zonesData = await zonesRes.json();
+                    const categoriesData = await categoriesRes.json();
+                    const objectsData = await objectsRes.json();
+                    const statusesData = await statusesRes.json();
+
+                    statusOptions = statusesData.values ? statusesData.values.flat() : [];
+
+                    zonesContainer.innerHTML = '';
+                    allObjects = [];
+
+                    renderZones(zonesData.values);
+                    renderCategories(categoriesData.values);
+                    renderObjects(objectsData.values);
+                    
+                    loadState();
+
+                } catch (error) {
+                    console.error("無法載入試算表資料:", error);
+                    showMessage("載入資料失敗。請檢查您的API金鑰或試算表ID。", 'red');
+                } finally {
+                    refreshButton.classList.remove('loading'); 
+                }
+            }
+            
+            function showMessage(message, color = 'green') {
+                messageBox.textContent = message;
+                messageBox.style.backgroundColor = color;
+                messageBox.style.display = 'block';
+                messageBox.style.opacity = 1;
+                setTimeout(() => {
+                    messageBox.style.opacity = 0;
+                    setTimeout(() => {
+                        messageBox.style.display = 'none';
+                    }, 500);
+                }, 3000);
+            }
+
+            function renderZones(zonesValues) {
+                if (!zonesValues || zonesValues.length === 0) return;
+                
+                zonesValues.forEach((zoneName, index) => {
+                    const zoneDiv = document.createElement('div');
+                    zoneDiv.className = 'zone';
+                    zoneDiv.id = `zone${index + 1}`;
+
+                    const headerDiv = document.createElement('div');
+                    headerDiv.className = 'zone-header';
+                    headerDiv.innerHTML = `<h3>${zoneName[0] || '未命名區域'}</h3><span class="zone-toggle-icon">▼</span>`;
+                    
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'zone-content';
+
+                    zoneDiv.appendChild(headerDiv);
+                    zoneDiv.appendChild(contentDiv);
+                    zonesContainer.appendChild(zoneDiv);
+                });
+                
+                zones = Array.from(document.querySelectorAll('.zone'));
+                attachZoneEventListeners();
+                updateToggleButton();
+            }
+
+            function renderCategories(categoriesValues) {
+                if (!categoriesValues || categoriesValues.length === 0) return;
+
+                categoryButtonsContainer.innerHTML = '';
+                categoriesValues.forEach((categoryName) => {
+                    const button = document.createElement('button');
+                    button.className = 'category-button active';
+                    button.setAttribute('data-category', categoryName[0]);
+                    button.textContent = categoryName[0];
+                    categoryButtonsContainer.appendChild(button);
+                });
+                attachCategoryEventListeners();
+            }
+
+            function renderObjects(objectsValues) {
+                if (!objectsValues || objectsValues.length === 0) return;
+                
+                objectsValues.forEach((rowData, index) => {
+                    if (rowData.length < 7) return; 
+                    
+                    const objectDiv = document.createElement('div');
+                    objectDiv.className = 'object';
+                    objectDiv.draggable = true;
+                    objectDiv.setAttribute('data-id', rowData[0]);
+                    objectDiv.setAttribute('data-category', rowData[1]);
+                    objectDiv.setAttribute('data-zone', rowData[2]);
+                    objectDiv.setAttribute('data-status', rowData[3]);
+                    objectDiv.setAttribute('data-note', rowData[4]);
+                    objectDiv.setAttribute('data-alias', rowData[5]);
+                    objectDiv.setAttribute('data-name', rowData[6]);
+                    objectDiv.setAttribute('data-row-index', index + 2);
+                    
+                    const objectHTML = `${rowData[6]}<span>${rowData[5]}</span>`;
+                    
+                    if (rowData[3] && rowData[3].includes('損壞')) {
+                        objectDiv.classList.add('corrupted');
+                    } else if (rowData[3] === '儲備' || rowData[3] === '暫代') {
+                        objectDiv.classList.add('reserved');
+                    }
+                    
+                    objectDiv.innerHTML = objectHTML;
+                    
+                    allObjects.push(objectDiv);
+                    
+                    const targetZone = zones.find(zone => {
+                        return zone.querySelector('h3').textContent === rowData[2];
+                    });
+
+                    if (targetZone) {
+                        targetZone.querySelector('.zone-content').appendChild(objectDiv);
+                    } else {
+                        if (zones.length > 0) {
+                            zones[0].querySelector('.zone-content').appendChild(objectDiv);
+                            console.error(`找不到物件 "${rowData[0]}" 對應的區域 "${rowData[2]}"。物件已放置於第一個區域。`);
+                        } else {
+                            console.error("無法放置物件，因為沒有定義任何區域。");
+                        }
+                    }
+                });
+
+                attachObjectEventListeners();
+                filterObjects();
+            }
+
+            function attachZoneEventListeners() {
+                zones.forEach(zone => {
+                    const header = zone.querySelector('.zone-header');
+                    header.addEventListener('click', () => {
+                        zones.forEach(z => {
+                            if (z !== zone) {
+                                z.classList.remove('expanded');
+                            }
+                        });
+                        zone.classList.toggle('expanded');
+                        updateToggleButton();
+                        saveState(); 
+                    });
+
+                    const dropAreas = [header, zone.querySelector('.zone-content')];
+                    dropAreas.forEach(dropArea => {
+                        dropArea.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            if (draggedItem) {
+                                zone.classList.add('expanded');
+                                dropArea.classList.add('drag-over');
+                            }
+                        });
+
+                        dropArea.addEventListener('dragleave', (e) => {
+                            dropArea.classList.remove('drag-over');
+                        });
+
+                        dropArea.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            dropArea.classList.remove('drag-over');
+                            if (draggedItem) {
+                                zone.querySelector('.zone-content').appendChild(draggedItem);
+                                // const id = draggedItem.getAttribute('data-id'); // Not used
+                                const rowIndex = draggedItem.getAttribute('data-row-index');
+                                const newZone = zone.querySelector('h3').textContent;
+                                
+                                // 1. 更新後端 (Apps Script)
+                                updateObjectData(rowIndex, { zone: newZone }); // 傳送 Zone 更改
+                                
+                                // 2. 更新 DOM 屬性，確保在下次資料更新前，面板能顯示正確的 Zone
+                                draggedItem.setAttribute('data-zone', newZone); 
+                                
+                                saveState(); 
+                            }
+                        });
+                    });
+                });
+            }
+
+            function attachObjectEventListeners() {
+                allObjects.forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        if (e.target.getAttribute('data-panel-open') === 'true') {
+                            e.preventDefault();
+                            return;
+                        }
+                        draggedItem = e.target;
+                        setTimeout(() => {
+                            e.target.classList.add('dragging');
+                        }, 0);
+                    });
+
+                    item.addEventListener('dragend', (e) => {
+                        e.target.classList.remove('dragging');
+                        draggedItem = null;
+                    });
+
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        
+                        const openPanel = document.querySelector('.object[data-panel-open="true"]');
+                        if (openPanel && openPanel !== item) {
+                            openPanel.setAttribute('data-panel-open', 'false');
+                        }
+                        
+                        const isOpen = item.getAttribute('data-panel-open') === 'true';
+                        item.setAttribute('data-panel-open', !isOpen);
+
+                        if (!isOpen) {
+                            // 進入 內容預覽狀態 (Preview State)
+                            stopAutoRefresh(); 
+                            const name = item.getAttribute('data-name');
+                            const id = item.getAttribute('data-id');
+                            const category = item.getAttribute('data-category');
+                            const zone = item.getAttribute('data-zone'); 
+                            const status = item.getAttribute('data-status');
+                            const note = item.getAttribute('data-note');
+                            const alias = item.getAttribute('data-alias');
+                            
+                            objectPanelTitle.innerHTML = name;
+                            
+                            objectPanelContent.innerHTML = `
+                                代稱: ${alias}
+                                <br>ID: ${id}
+                                <br>類別: ${category}
+                                <br>區域: ${zone}
+                                <br>狀態: ${status}
+                                <br>註記: ${note}
+                            `;
+                            objectInfoPanel.classList.add('visible');
+                            
+                            // 顯示 Preview State 按鈕 (使用 Block/Flex 覆蓋樣式中的預設 display:none)
+                            changeBtn.style.display = 'block';
+                            closeBtnInline.style.display = 'flex';
+                            
+                            // 隱藏 Change State 元素
+                            confirmBtn.style.display = 'none';
+                            cancelBtnInline.style.display = 'none'; 
+                            propertyArea.classList.remove('visible');
+                            
+                            aliasInput.value = alias;
+                            noteInput.value = note;
+
+                            renderPropertyArea(status, zone);
+                            
+                            objectInfoPanel.currentObject = item;
+                            saveState(); 
+                        } else {
+                            closeObjectPanel(); 
+                            saveState(); 
+                        }
+                    });
+                });
+            }
+
+            function attachCategoryEventListeners() {
+                const categoryButtons = document.querySelectorAll('.category-button');
+                categoryButtons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        button.classList.toggle('active');
+                        filterObjects();
+                        saveState(); 
+                    });
+                });
+            }
+
+            function areAllZonesExpanded() {
+                return Array.from(zones).every(zone => zone.classList.contains('expanded'));
+            }
+
+            function updateToggleButton() {
+                if (areAllZonesExpanded()) {
+                    toggleAllBtn.textContent = '全部收合';
+                    toggleAllBtn.classList.remove('white-bg');
+                } else {
+                    toggleAllBtn.textContent = '全部展開';
+                    toggleAllBtn.classList.add('white-bg');
+                }
+            }
+            
+            function filterObjects() {
+                const selectedCategories = Array.from(document.querySelectorAll('.category-button.active'))
+                    .map(btn => btn.getAttribute('data-category'));
+
+                allObjects.forEach(object => {
+                    const category = object.getAttribute('data-category');
+                    if (selectedCategories.includes(category)) {
+                        object.classList.remove('hidden');
+                    } else {
+                        object.classList.add('hidden');
+                    }
+                });
+            }
+
+            panelToggleBtn.addEventListener('click', () => {
+                floatingPanel.classList.add('expanded');
+                stopAutoRefresh(); 
+                saveState(); 
+            });
+            collapseBtn.addEventListener('click', () => {
+                floatingPanel.classList.remove('expanded');
+                startAutoRefresh(); 
+                saveState(); 
+            });
+
+            toggleAllBtn.addEventListener('click', () => {
+                if (areAllZonesExpanded()) {
+                    zones.forEach(zone => zone.classList.remove('expanded'));
+                } else {
+                    zones.forEach(zone => zone.classList.add('expanded'));
+                }
+                updateToggleButton();
+                saveState(); 
+            });
+            
+            function closeObjectPanel() {
+                const openPanel = document.querySelector('.object[data-panel-open="true"]');
+                if (openPanel) {
+                    openPanel.setAttribute('data-panel-open', 'false');
+                }
+                objectInfoPanel.classList.remove('visible');
+                
+                // 重設按鈕狀態為隱藏
+                changeBtn.style.display = 'none';
+                closeBtnInline.style.display = 'none';
+                confirmBtn.style.display = 'none';
+                cancelBtnInline.style.display = 'none'; 
+                
+                propertyArea.classList.remove('visible');
+                
+                startAutoRefresh(); 
+                saveState(); 
+            }
+
+            // 綁定關閉/取消按鈕的事件
+            closeBtnInline.addEventListener('click', closeObjectPanel); // Preview State 的 X 
+            cancelBtnInline.addEventListener('click', closeObjectPanel); // Change State 的 取消
+
+            document.addEventListener('click', (e) => {
+                if (objectInfoPanel.classList.contains('visible') && !objectInfoPanel.contains(e.target)) {
+                    if (!e.target.closest('.object')) {
+                         closeObjectPanel();
+                    }
+                }
+            });
+
+            objectPanelContent.addEventListener('mousedown', (e) => {
+                const textToCopy = e.target.textContent;
+                document.execCommand('copy');
+                console.log('內容已複製到剪貼簿。');
+            });
+            
+            changeBtn.addEventListener('click', () => {
+                // 進入 內容更改狀態 (Change State)
+                
+                // 隱藏 Preview State 按鈕
+                changeBtn.style.display = 'none';
+                closeBtnInline.style.display = 'none'; 
+                
+                // 顯示 Change State 按鈕
+                confirmBtn.style.display = 'block';
+                cancelBtnInline.style.display = 'block'; 
+
+                propertyArea.classList.add('visible'); // 顯示登載區
+                saveState(); 
+            });
+
+            confirmBtn.addEventListener('click', () => {
+                const currentObject = objectInfoPanel.currentObject;
+                if (!currentObject) return;
+
+                const rowIndex = currentObject.getAttribute('data-row-index');
+                const newAlias = aliasInput.value;
+                const newNote = noteInput.value;
+                const newStatus = statusButtonsContainer.querySelector('.status-button.active')?.textContent || '';
+                const newZone = zoneButtonsContainer.querySelector('.status-button.active')?.textContent || ''; // 讀取選取的 Zone
+
+                const oldZone = currentObject.getAttribute('data-zone'); // 獲取舊的 Zone
+                
+                const statusToSend = newStatus;
+
+                // 2. 更新 DOM 中狀態、代稱、註記和位置 (Zone) 的顯示
+                currentObject.setAttribute('data-alias', newAlias);
+                currentObject.setAttribute('data-note', newNote);
+                currentObject.setAttribute('data-status', newStatus);
+                currentObject.setAttribute('data-zone', newZone); // 更新物件的 Zone 屬性
+                currentObject.innerHTML = `${currentObject.getAttribute('data-name')}<span>${newAlias}</span>`;
+
+                currentObject.classList.remove('corrupted', 'reserved');
+                if (newStatus.includes('損壞')) {
+                    currentObject.classList.add('corrupted');
+                } else if (newStatus === '儲備' || newStatus === '暫代') {
+                    currentObject.classList.add('reserved');
+                }
+
+                // 3. 提交所有更改的資料 (包含 Zone)
+                updateObjectData(rowIndex, {
+                    alias: newAlias,
+                    status: statusToSend,
+                    note: newNote,
+                    zone: newZone // <-- 新增 Zone 資料，對應總表!C2:C
+                });
+                
+                // 4. 如果 Zone 改變，需要將物件移動到新的 Zone 容器中
+                if (oldZone !== newZone) {
+                    const targetZone = zones.find(zone => {
+                        return zone.querySelector('h3').textContent === newZone;
+                    });
+                    if (targetZone) {
+                         // 僅移動 DOM 元素，不重新觸發後台寫入
+                         targetZone.querySelector('.zone-content').appendChild(currentObject);
+                    }
+                }
+
+                closeObjectPanel(); 
+                saveState(); 
+            });
+
+            // --- 狀態/位置按鈕的渲染邏輯 ---
+            
+            function renderStatusButtons(currentStatus) {
+                statusButtonsContainer.innerHTML = '';
+                statusOptions.forEach(status => {
+                    const button = document.createElement('button');
+                    button.textContent = status;
+                    button.className = 'status-button';
+                    
+                    if (status === currentStatus || (currentStatus === '' && status === '正常')) {
+                        button.classList.add('active');
+                        
+                        if (status === '暫代' || status === '儲備') {
+                            button.style.backgroundColor = '#ff9900';
+                            button.style.color = 'white';
+                        }
+                        else if (status.includes('損壞')) {
+                            button.style.backgroundColor = 'red';
+                            button.style.color = 'white';
+                        }
+                    }
+
+                    button.addEventListener('click', () => {
+                        Array.from(statusButtonsContainer.children).forEach(btn => {
+                            btn.classList.remove('active');
+                            btn.style.backgroundColor = '';
+                            btn.style.color = '';
+                        });
+                        
+                        button.classList.add('active');
+                        
+                        if (button.textContent === '暫代' || button.textContent === '儲備') {
+                            button.style.backgroundColor = '#ff9900';
+                            button.style.color = 'white';
+                        } else if (button.textContent.includes('損壞')) {
+                            button.style.backgroundColor = 'red';
+                            button.style.color = 'white';
+                        }
+                    });
+
+                    statusButtonsContainer.appendChild(button);
+                });
+            }
+            
+            function renderZoneButtons(currentZone) {
+                zoneButtonsContainer.innerHTML = '';
+                
+                const zoneNames = zones.map(zone => zone.querySelector('h3').textContent);
+                
+                zoneNames.forEach(zoneName => {
+                    const button = document.createElement('button');
+                    button.textContent = zoneName;
+                    button.className = 'status-button zone-button'; 
+                    
+                    if (zoneName === currentZone) {
+                        button.classList.add('active');
+                    }
+
+                    button.addEventListener('click', () => {
+                        // 確保只有一個 Zone 按鈕被選中
+                        Array.from(zoneButtonsContainer.children).forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        button.classList.add('active');
+                        // 此處不進行即時資料寫入，等待「確定」按鈕
+                    });
+
+                    zoneButtonsContainer.appendChild(button);
+                });
+            }
+            
+            function renderPropertyArea(currentStatus, currentZone) {
+                renderStatusButtons(currentStatus);
+                renderZoneButtons(currentZone);
+            }
+            // --- 狀態/位置按鈕的渲染邏輯結束 ---
+
+            async function updateObjectData(rowIndex, data) {
+                if (APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT_ID')) {
+                    showMessage("請先在 Apps Script 中部署程式碼並更新 URL", 'red');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(APPS_SCRIPT_URL, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            rowIndex: rowIndex,
+                            ...data
+                        })
+                    });
+                    
+                    showMessage("資料已成功更新！", 'green');
+                } catch (error) {
+                    console.error("更新資料失敗:", error);
+                    showMessage("更新資料失敗。請檢查 Apps Script 是否正確部署。", 'red');
+                }
+            }
+            
+            fetchSpreadsheetData().then(() => {
+                startAutoRefresh();
+            });
+        });
+    </script>
+</body>
+</html>
