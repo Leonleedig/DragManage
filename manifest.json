@@ -1,6 +1,6 @@
 {
-"name": "影音器材列表",
-"short_name": "器材列表",
+"name": "影音設備清單",
+"short_name": "影音設備",
 "description": "即時影音器材狀態管理系統，支援離線存取。",
 "start_url": "./app.html",
 "display": "standalone",
