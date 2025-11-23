@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📱 雲端同步可自訂週行程表</title>
+    <style>
+        /* --- 視覺友善高齡用戶設計 (優化) --- */
+        body {
+            font-family: '微軟正黑體', 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+            -webkit-text-size-adjust: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* 容器 */
+        .container {
+            width: 100%;
+            max-width: 800px;
+        }
+
+        /* 標題與說明文字放大 */
+        h1 {
+            color: #1a73e8; /* Google Blue */
+            font-size: 2.2em;
+            text-align: center;
+            margin-bottom: 0.5em;
+        }
+
+        p.info {
+            font-size: 1.1em;
+            color: #185a00;
+            text-align: center;
+            margin-bottom: 1.5em;
+            padding: 10px;
+            background-color: #e6ffec;
+            border-left: 5px solid #28a745;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .user-id-display {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 10px;
+            word-break: break-all;
+            padding: 5px;
+            background-color: #fff;
+            border-radius: 4px;
+        }
+
+        /* 表格與儲存格 */
+        .schedule-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .schedule-table th, .schedule-table td {
+            padding: 15px 10px;
+            text-align: center;
+            border: 1px solid #e0e0e0;
+            font-size: 1.4em;
+            height: 70px;
+            line-height: 1.4; /* 增加行高，提升易讀性 */
+        }
+
+        /* 表頭 (TH) 樣式 */
+        .schedule-table th {
+            background-color: #e8f0fe;
+            color: #333;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        /* 星期幾的標題 */
+        /* 1. 縮窄時段欄位 */
+        .schedule-table th:first-child {
+            width: 15%; /* 減少時段欄位寬度 */
+            min-width: 100px; /* 確保最小寬度可閱讀 */
+            background-color: #cfe2ff;
+        }
+        
+        /* 時段標籤儲存格樣式 */
+        .schedule-table td.slot-label {
+            background-color: #d1ecf1; /* 與時段標頭相近的顏色 */
+            font-weight: bold;
+            cursor: pointer;
+            word-break: break-word; /* 長標籤可換行 */
+        }
+        
+        /* 編輯中的輸入框 */
+        .schedule-table textarea {
+            width: 95%;
+            height: 60px;
+            border: 3px solid #1a73e8;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 1.3em;
+            resize: none;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        /* 按鈕區塊 */
+        .action-bar {
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .action-bar button {
+            background-color: #28a745; /* 綠色按鈕 */
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .action-bar button:hover {
+            background-color: #218838;
+            transform: translateY(-1px);
+        }
+
+        /* 載入指示器 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            color: #1a73e8;
+            z-index: 100;
+        }
+
+        /* --- 手機適應性 (RWD) --- */
+        .table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+        }
+        .schedule-table {
+            min-width: 700px; /* 確保在小螢幕上仍有足夠寬度 */
+        }
+        @media (max-width: 768px) {
+            .schedule-table th:first-child {
+                 width: 20%;
+                 min-width: 80px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>✅ 雲端同步可自訂週行程表</h1>
+        <p class="info">
+            👉 **資料已即時同步！** 點擊表格內的**任一格子**即可編輯。點擊左側時段名稱可修改時間。
+        </p>
+        <div class="user-id-display">
+            您的用戶 ID (User ID)：<span id="currentUserId">載入中...</span>
+        </div>
+        <div class="action-bar">
+            <button onclick="addSlot()">➕ 新增時段 (表格行)</button>
+        </div>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        正在連接雲端並載入最新資料...
+    </div>
+
+    <div class="table-wrapper">
+        <table class="schedule-table" id="scheduleTable">
+            <thead>
+                <tr>
+                    <th>時段</th>
+                    <th>一</th>
+                    <th>二</th>
+                    <th>三</th>
+                    <th>四</th>
+                    <th>五</th>
+                    <th>六</th>
+                    <th>日</th>
+                </tr>
+            </thead>
+            <tbody id="scheduleBody">
+                <!-- 排班表內容將由 JavaScript 渲染 -->
+            </tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        // 導入 Firebase 模組
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 全域變數初始化 (由環境提供)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const SCHEDULE_DOC_PATH = `artifacts/${appId}/public/data/schedule/weekly-schedule`;
+        const scheduleTable = document.getElementById('scheduleTable');
+        const scheduleBody = document.getElementById('scheduleBody');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const userIdDisplay = document.getElementById('currentUserId');
+
+        let db;
+        let auth;
+        let currentUserId = null;
+        let isAuthReady = false;
+        let scheduleData = {}; // 儲存排班表數據（包括 slots 和 cell 內容）
+        let slotLabels = []; // 僅儲存時段名稱列表
+
+        /** 預設時段，用於首次載入時 */
+        const DEFAULT_SLOTS = ["上午 (8-12)", "下午 (12-18)", "晚上 (18-22)", "深夜 (22+)"];
+
+
+        /**
+         * 顯示/隱藏載入指示器
+         * @param {boolean} show 是否顯示
+         */
+        function setLoading(show) {
+            loadingOverlay.style.display = show ? 'flex' : 'none';
+        }
+
+        /**
+         * 1. 初始化 Firebase 服務與身份驗證
+         */
+        async function initializeFirebase() {
+            setLoading(true);
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUserId = user.uid;
+                        userIdDisplay.textContent = currentUserId;
+                        isAuthReady = true;
+                        listenForScheduleUpdates();
+                    } else {
+                        console.error("Firebase 身份驗證失敗。");
+                        currentUserId = '無法取得用戶ID';
+                        userIdDisplay.textContent = currentUserId;
+                        isAuthReady = false;
+                        setLoading(false);
+                    }
+                });
+
+            } catch (error) {
+                console.error("Firebase 初始化或身份驗證錯誤:", error);
+                userIdDisplay.textContent = '初始化失敗';
+                setLoading(false);
+            }
+        }
+
+        /**
+         * 2. 監聽 Firestore 上的排班表數據變化 (即時同步)
+         */
+        function listenForScheduleUpdates() {
+            if (!isAuthReady || !db) return;
+
+            const scheduleDocRef = doc(db, SCHEDULE_DOC_PATH);
+
+            onSnapshot(scheduleDocRef, (docSnapshot) => {
+                setLoading(false);
+
+                if (docSnapshot.exists()) {
+                    scheduleData = docSnapshot.data();
+                    // 提取時段標籤列表，如果不存在則使用預設值
+                    slotLabels = scheduleData.slots || DEFAULT_SLOTS;
+                    renderScheduleTable(scheduleData);
+                    console.log('數據已從雲端同步:', scheduleData);
+                } else {
+                    // 如果文件不存在，首次創建並初始化時段列表
+                    scheduleData = { slots: DEFAULT_SLOTS };
+                    slotLabels = DEFAULT_SLOTS;
+                    setDoc(scheduleDocRef, scheduleData).catch(e => console.error("首次創建排班表文檔失敗:", e));
+                    renderScheduleTable(scheduleData);
+                }
+            }, (error) => {
+                console.error("Firestore 數據監聽錯誤:", error);
+                setLoading(false);
+            });
+        }
+
+        /**
+         * 3. 渲染表格 UI
+         * @param {Object} data - 從 Firestore 獲取的排班表數據
+         */
+        function renderScheduleTable(data) {
+            scheduleBody.innerHTML = ''; // 清空現有內容
+
+            slotLabels.forEach((slot, rowIndex) => {
+                const row = scheduleBody.insertRow();
+                row.setAttribute('data-row', rowIndex);
+
+                // 第一列：時段標籤 (可編輯)
+                const slotCell = row.insertCell();
+                slotCell.textContent = slot;
+                slotCell.classList.add('slot-label'); 
+                slotCell.setAttribute('data-col', 0); // 時段標籤使用 Col Index 0
+
+                // 接下來是星期一到星期日 (1 到 7)
+                for (let colIndex = 1; colIndex <= 7; colIndex++) {
+                    const cell = row.insertCell();
+                    cell.setAttribute('data-col', colIndex);
+                    
+                    const key = `${rowIndex}-${colIndex}`;
+                    cell.textContent = data[key] || '';
+                }
+            });
+        }
+
+        /**
+         * 4. 儲存數據到 Firestore
+         * @param {string} key - 儲存格的鍵 (e.g., "0-1") 或 "slots"
+         * @param {string|Array} content - 新的內容 (字串或時段陣列)
+         */
+        function saveSchedule(key, content) {
+            if (!isAuthReady || !db) {
+                console.error('數據庫尚未初始化完成。');
+                return;
+            }
+
+            const scheduleDocRef = doc(db, SCHEDULE_DOC_PATH);
+
+            let updatePayload = {};
+
+            if (key === 'slots') {
+                // 儲存整個時段標籤陣列
+                updatePayload = { slots: content };
+            } else {
+                // 儲存單一儲存格內容
+                updatePayload = { [key]: content };
+            }
+
+            setDoc(scheduleDocRef, updatePayload, { merge: true })
+                .then(() => {
+                    console.log(`數據 ${key} 成功更新。`);
+                })
+                .catch(error => {
+                    console.error("儲存排班表資料到 Firestore 失敗:", error);
+                });
+        }
+
+        /**
+         * 5. 將儲存格轉換為可編輯的 TextArea
+         * @param {HTMLElement} td - 被點擊的表格儲存格元素
+         */
+        function makeEditable(td) {
+            if (td.querySelector('textarea')) return;
+
+            const row = td.closest('tr').getAttribute('data-row');
+            const col = td.getAttribute('data-col');
+            const key = `${row}-${col}`;
+            const isSlotLabel = (col === '0'); // 判斷是否為時段標籤 (第一欄)
+
+            const originalContent = td.textContent.trim();
+            const textarea = document.createElement('textarea');
+            textarea.value = originalContent;
+            
+            // 如果是時段標籤，將高度縮小一點
+            if (isSlotLabel) {
+                 textarea.style.height = '40px';
+                 textarea.style.fontSize = '1.1em';
+            }
+
+            td.innerHTML = '';
+            td.appendChild(textarea);
+            textarea.focus();
+
+            const handleBlur = () => {
+                const newContent = textarea.value.trim();
+
+                // 1. 更新 UI
+                td.innerHTML = newContent;
+
+                // 2. 儲存到雲端
+                if (isSlotLabel) {
+                    // 如果是時段標籤，更新本地陣列並儲存整個陣列
+                    const index = parseInt(row);
+                    slotLabels[index] = newContent;
+                    saveSchedule('slots', slotLabels);
+                } else {
+                    // 如果是排班內容
+                    saveSchedule(key, newContent);
+                }
+
+                // 移除監聽器
+                textarea.removeEventListener('blur', handleBlur);
+                textarea.removeEventListener('keydown', handleKeydown);
+            };
+
+            const handleKeydown = (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    textarea.blur();
+                }
+            };
+
+            textarea.addEventListener('blur', handleBlur);
+            textarea.addEventListener('keydown', handleKeydown);
+        }
+
+        /**
+         * 6. 新增時段（外部按鈕呼叫）
+         */
+        window.addSlot = function() {
+            if (!isAuthReady) {
+                 alert('數據庫尚未初始化完成，請稍候再試。');
+                 return;
+            }
+            // 新增一個新的時段名稱到陣列
+            slotLabels.push(`新時段 (${slotLabels.length + 1})`);
+            // 儲存整個更新後的時段陣列
+            saveSchedule('slots', slotLabels); 
+            // onSnapshot 會負責重新渲染表格
+        }
+
+        // --- 初始化與事件綁定 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. 初始化表格結構
+            renderScheduleTable(scheduleData); 
+
+            // 2. 監聽表格的點擊事件（事件委託）
+            scheduleTable.addEventListener('click', (event) => {
+                // 確保點擊的是可編輯的 TD 儲存格 (data-col 1-7 是內容，0 是時段標籤)
+                const target = event.target.closest('td[data-col]');
+                if (target) {
+                    makeEditable(target);
+                }
+            });
+
+            // 3. 啟動 Firebase 連線和認證
+            initializeFirebase();
+        });
+    </script>
+</body>
+</html>
+
+
