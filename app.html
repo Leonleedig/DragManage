@@ -13,19 +13,46 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
     <link rel="manifest" href="manifest.json">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
     <style>
         /* 基本樣式 */
         body { font-family: Arial, sans-serif; background-color: #f4f7f9; margin: 0; padding: 20px; }
         .zone { background-color: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 20px; overflow: hidden; transition: all 0.3s ease; }
-        .zone-header { padding: 5px 20px; background-color: #eef2f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .zone-header h3 { margin: 0; color: #333; flex-grow: 1; display: flex; align-items: baseline;}
-        .zone-count { font-size: 0.85em; color: #666; font-weight: normal; margin-left: 5px; }
-        .zone-toggle-icon { font-size: 16px; margin-left: 10px; transition: transform 0.3s ease; }
+        .zone-header { padding: 5px 20px; background-color: #eef2f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background-color 0.3s ease, color 0.3s ease; }
+        .zone-header.highlighted { background-color: #fff9c4; } 
+        .zone-header h3 { margin: 0; color: #333; flex-grow: 1; display: flex; align-items: baseline; transition: color 0.3s ease; }
+        .zone-count { font-size: 0.85em; color: #666; font-weight: normal; margin-left: 5px; transition: color 0.3s ease; }
+        .zone-toggle-icon { font-size: 16px; margin-left: 10px; transition: transform 0.3s ease, color 0.3s ease; }
         .zone.expanded .zone-toggle-icon { transform: rotate(180deg); }
         .zone-content { padding: 5px; border-top: 1px solid #ddd; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out, padding 0.4s ease-out; }
         .zone.expanded .zone-content { max-height: 20000px; padding: 10px; }
 
-        /* 物件樣式 */
+        .zone.task-zone { border: 2px dashed #3f51b5; box-shadow: 0 4px 12px rgba(63, 81, 181, 0.15); }
+        .zone.task-zone .zone-header { background-color: #e8eaf6; }
+        .delete-task-btn { background: none; border: none; color: #f44336; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; margin-right: 5px; border-radius: 50%; transition: background-color 0.2s; }
+        .delete-task-btn:hover { background-color: rgba(244, 67, 54, 0.1); }
+        
+        .editable-task-name {
+            border-bottom: 1px dashed #3f51b5;
+            padding-bottom: 2px;
+            cursor: text;
+            min-width: 60px;
+            display: inline-block;
+            outline: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        .editable-task-name:hover { background-color: rgba(63, 81, 181, 0.08); }
+        .editable-task-name:focus { background-color: #fff; border-bottom: 2px solid #3f51b5; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 0 4px; border-radius: 4px; }
+
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-left: 15px; flex-shrink: 0; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: #4CAF50; }
+        input:checked + .slider:before { transform: translateX(20px); }
+
         .object { position: relative; background-color: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; text-align: center; font-size: 20px; cursor: grab; transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.4s ease; user-select: none; -webkit-user-select: none; touch-action: manipulation; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; }
         .object[data-panel-open="false"] { cursor: pointer; }
         .object[data-panel-open="true"] { cursor: default; }
@@ -35,18 +62,15 @@
         .object-icon { width: 24px; height: 24px; object-fit: contain; pointer-events: none; }
         .object-icon-font { font-size: 22px; pointer-events: none; display: flex; align-items: center; justify-content: center; }
 
-        /* 動態CSS預設區 */
         .object[data-status*="損壞"] { background-color: #f44336; color: white; }
         .object[data-status="儲備"], .object[data-status="暫代"] { background-color: #ff9900; color: white; }
 
-        /* 面板樣式 */
         .object-panel, .color-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 95vh; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); padding: 20px; z-index: 1001; display: none; flex-direction: column; justify-content: space-between; }
         .object-panel h4, .color-panel h4 { margin-top: 0; }
         .object-panel.visible, .color-panel.visible { display: flex; }
         .object-panel .panel-body, .color-panel .panel-body { flex-grow: 1; overflow-y: auto; cursor: copy; padding-bottom: 5px; line-height: 1.5; }
         .color-panel .panel-body { cursor: default; }
 
-        /* 動作條與細線 */
         .action-bar-container { position: relative; height: 40px; display: flex; justify-content: center; align-items: center; margin-bottom: 5px; margin-top: 5px; width: 100%; }
         .fine-line-raised { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background-color: #e0e0e0; z-index: 10; }
         #panel-action-bar, .panel-action-bar-common { display: flex; align-items: center; justify-content: center; position: relative; z-index: 20; gap: 20px; padding: 0 10px; }
@@ -54,13 +78,18 @@
         .primary-slot, .cancel-slot { width: 100px; }
         .action-slot button { position: absolute; top: 0; left: 0; width: 100%; border: none; cursor: pointer; transition: background-color 0.2s; font-size: 16px; color: white; border-radius: 4px; }
         
-        #change-btn, #confirm-btn, #cancel-btn-inline, #reset-colors-btn { background-color: #3f51b5; padding: 8px 16px; display: block; }
+        #change-btn, #confirm-btn, #cancel-btn-inline { background-color: #3f51b5; padding: 8px 16px; display: block; }
         #change-btn:hover, #confirm-btn:hover { background-color: #5c6bc0; }
-        #close-btn-inline, #close-color-panel-btn { width: 40px; height: 40px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background-color: #f44336; left: auto; right: 0; }
+        #close-btn-inline { width: 40px; height: 40px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background-color: #f44336; left: auto; right: 0; }
         #cancel-btn-inline { background-color: #6c757d; display: block; }
         #cancel-btn-inline:hover { background-color: #5a6268; }
 
-        /* 動態屬性區塊樣式 */
+        #apply-colors-btn, #cancel-colors-btn { border: none; color: white; padding: 10px 32px; font-size: 16px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; letter-spacing: 2px; }
+        #apply-colors-btn { background-color: #3f51b5; }
+        #apply-colors-btn:hover { background-color: #5c6bc0; }
+        #cancel-colors-btn { background-color: #6c757d; }
+        #cancel-colors-btn:hover { background-color: #5a6268; }
+
         .property-area { background-color: transparent; border: none; border-radius: 4px; margin-bottom: 10%; padding: 0; width: 100%; display: none; box-sizing: border-box; text-align: left; max-height: 40vh; overflow-y: auto; }
         .property-area.visible { display: block; }
         .property-area > div { display: flex; align-items: center; margin-bottom: 10px; }
@@ -71,7 +100,6 @@
         .status-button { background-color: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .status-button.active { background-color: #3f51b5; color: white; }
 
-        /* 導航面板樣式 */
         .floating-panel { position: fixed; bottom: 20px; right: 20px; background-color: #3f51b5; color: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; align-items: center; transition: all 0.3s ease; z-index: 1000; }
         .panel-toggle-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 10px 15px; width: 100%; transition: background-color 0.2s; }
         .floating-panel.expanded .panel-toggle-btn { display: none; }
@@ -79,14 +107,17 @@
         .floating-panel.expanded .panel-content { max-height: 500px; padding: 10px; overflow-y: auto;}
         .panel-content .collapse-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0 10px; margin-bottom: 5px; }
         
-        /* 加入 flexbox 讓按鈕內的圖標能與文字漂亮對齊 */
         .toggle-btn { display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #3f51b5; color: white; border: none; padding: 10px 15px; cursor: pointer; transition: background-color 0.2s, color 0.2s; width: 100%; font-size: 20px; }
         .toggle-btn:hover { background-color: #7986cb; }
         .toggle-btn.white-bg { background-color: #fff; color: #3f51b5; border: 1px solid #3f51b5; margin-bottom: 5px;}
         .toggle-btn.white-bg:hover { background-color: #e0e0e0; }
 
+        .tools-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px 10px; width: 100%; padding: 5px 0 15px 0; box-sizing: border-box; justify-items: center; }
+        .tool-icon-btn { background: none; border: none; color: white; padding: 8px; cursor: pointer; transition: transform 0.2s, opacity 0.2s; display: flex; align-items: center; justify-content: center; opacity: 0.8; }
+        .tool-icon-btn:hover { opacity: 1; transform: scale(1.2); }
+        .tool-icon-btn .material-icons-outlined { font-size: 28px; }
+
         .category-buttons { display: flex; flex-direction: column; width: 100%; }
-        /* 加入 flexbox 對齊分類按鈕圖標 */
         .category-button { display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #3f51b5; color: white; border: 1px solid #3f51b5; padding: 8px 12px; cursor: pointer; transition: background-color 0.2s, color 0.2s; text-align: center; font-size: 20px; }
         .category-button.active { background-color: #fff; color: #3f51b5; }
         .category-button:hover { background-color: #3f51b5; color: #fff; }
@@ -99,7 +130,6 @@
     </style>
 
     <style id="dynamic-spreadsheet-styles"></style>
-    <!-- 用於從前端暫存注入的自訂顏色樣式 -->
     <style id="user-custom-colors"></style>
 </head>
 <body>
@@ -114,10 +144,26 @@
         <button class="panel-toggle-btn">檢視 ▲</button>
         <div class="panel-content">
             <button class="collapse-btn">收合 ▼</button>
-            <button class="toggle-btn white-bg" id="open-color-panel-btn">
-                <span class="material-icons-outlined">palette</span> 改色標註
+            
+            <div class="tools-grid">
+                <button class="tool-icon-btn" id="add-task-btn" title="新增任務編組">
+                    <span class="material-icons-outlined">add_task</span>
+                </button>
+                <button class="tool-icon-btn" id="open-color-panel-btn" title="改色標註">
+                    <span class="material-icons-outlined">palette</span>
+                </button>
+                <button class="tool-icon-btn" id="screenshot-btn" title="畫面截圖">
+                    <span class="material-icons-outlined">image</span>
+                </button>
+                <button class="tool-icon-btn" id="help-btn" title="系統說明">
+                    <span class="material-icons-outlined">help_outline</span>
+                </button>
+            </div>
+
+            <button class="category-button" id="toggle-all-btn">
+                <span class="material-icons-outlined">unfold_more</span><span>全部展開</span>
             </button>
-            <button class="toggle-btn" id="toggle-all-btn" style="margin-bottom: 5px;">全部展開</button>
+
             <div class="category-buttons" id="category-buttons-container"></div>
         </div>
     </div>
@@ -155,34 +201,188 @@
             <h4 style="display: flex; align-items: center; gap: 6px;">
                 <span class="material-icons-outlined">palette</span> 改色標註
             </h4>
-            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">在此設定的顏色將同步儲存至試算表的「配色庫」工作表，所有裝置皆可看見。</p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">在此設定的顏色將同步儲存至雲端，所有裝置皆可看見。</p>
             <div id="color-legend-content" class="panel-body" style="display: flex; flex-direction: column; gap: 10px;">
-                <!-- 圖例將由 JS 動態生成 -->
             </div>
         </div>
         
         <div class="action-bar-container">
             <div class="fine-line-raised"></div>
-            <div class="panel-action-bar-common">
-                <div class="action-slot primary-slot" style="width: auto;">
-                    <button id="reset-colors-btn" class="action-btn" style="background-color: #ff9800; padding: 8px 16px; position: static;">清除所有自訂顏色</button>
-                </div>
-                <div class="action-slot cancel-slot" style="width: 40px;">
-                    <button id="close-color-panel-btn" class="action-btn">&times;</button>
-                </div>
+            <div class="panel-action-bar-common" style="width: 100%; justify-content: center; gap: 20px;">
+                <button id="apply-colors-btn">套用</button>
+                <button id="cancel-colors-btn">取消</button>
             </div>
         </div>
     </div>
 
-    <div id="message-box"></div>
+    <!-- 🌟 全新重構：高度擬真的系統說明教學面板 -->
+    <div id="help-panel" class="color-panel">
+        <div>
+            <h4 style="display: flex; align-items: center; gap: 6px;">
+                <span class="material-icons-outlined">help_outline</span> 使用說明
+            </h4>
+            <div class="panel-body" style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 15px; background: transparent;">
+                
+                <!-- 區塊 1: 擬真導航面板 -->
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff;">
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                        <!-- 模擬右下角導航面板 -->
+                        <div style="flex: 0 0 auto; width: 140px; background-color: #3f51b5; color: white; border-radius: 8px; padding: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: none; user-select: none;">
+                            <div style="text-align: center; margin-bottom: 5px; font-size: 13px; opacity: 0.9;">收合 ▼</div>
+                            <div class="tools-grid" style="padding: 0 0 10px 0; gap: 8px;">
+                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">add_task</span></div>
+                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">palette</span></div>
+                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">image</span></div>
+                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">help_outline</span></div>
+                            </div>
+                            <button class="category-button" style="width:100%; font-size: 14px; padding: 6px; margin-bottom: 6px; background-color: #3f51b5; color: white; border: 1px solid white;">
+                                <span class="material-icons-outlined" style="font-size:16px;">unfold_more</span> 全部展開
+                            </button>
+                            <div style="display:flex; flex-direction: column;">
+                                <button class="category-button active" style="width:100%; font-size: 14px; padding: 6px; background-color: #fff; color: #3f51b5; border: 1px solid #fff;">
+                                    <span class="material-icons-outlined" style="font-size:16px;">visibility</span> 顯示此類
+                                </button>
+                                <button class="category-button" style="width:100%; font-size: 14px; padding: 6px; background-color: #3f51b5; color: white; border: 1px solid #3f51b5;">
+                                    <span class="material-icons-outlined" style="font-size:16px;">visibility_off</span> 隱藏此類
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- 導航列功能圖說 -->
+                        <div style="flex: 1; min-width: 200px; font-size: 14px; color: #444; line-height: 1.8;">
+                            <h5 style="margin-top: 0; margin-bottom: 10px; color: #3f51b5; font-size: 16px;">導航區，就像遙控器</h5>
+                            <ul style="margin: 0; padding-left: 20px;">
+                                <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">add_task</span> <b>建立任務編組</b>：建立臨時任務區塊，可以事後解散。</li>
+                                <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">palette</span> <b>改色標註</b>：修改狀態顏色、建立專屬自訂狀態。</li>
+                                <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">image</span> <b>畫面截圖</b>：一鍵將當前配置無縫下載成圖片。</li>
+                                <li style="margin-top: 8px;"><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">visibility_off</span> <b>分類顯示／隱藏過濾器</b>：<br>點按面板最下方的分類名稱，可以快速<b>隱藏/顯示</b>特定類別的器材，讓畫面保持乾淨。</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
+                <!-- 區塊 2: 擬真區塊與卡片操作 -->
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff;">
+                    <h5 style="margin-top: 0; margin-bottom: 12px; color: #3f51b5; font-size: 16px;">主畫面，區塊與器材卡片</h5>
+                    
+                    <!-- 虛擬的完整 Zone 與包含卡片 -->
+                    <div class="zone task-zone expanded" style="margin-bottom: 15px; box-shadow: 0 2px 8px rgba(63,81,181,0.1); pointer-events: none; border: 2px dashed #3f51b5;">
+                        <div class="zone-header highlighted" style="cursor: default; background-color: #fff9c4;">
+                            <h3 style="color: #3f51b5;">
+                                <span class="material-icons-outlined" style="margin-right:6px; font-size:22px;">assignment</span>
+                                <span class="zone-name" style="border-bottom: 1px dashed #3f51b5;">區塊／任務編組（可點按改名稱）</span>
+                                <span class="zone-count">--(2)項</span>
+                            </h3>
+                            <div style="display: flex; align-items: center;">
+                                <label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label>
+                                <span class="zone-toggle-icon" style="transform: rotate(180deg);">▼</span>
+                            </div>
+                        </div>
+                        <div class="zone-content" style="max-height: none; padding: 12px; display: flex; gap: 10px; flex-wrap: wrap; background-color: #fff;">
+                            <div class="object" style="cursor: grab; width: max-content; padding: 8px 12px; pointer-events: none; background-color: #fafafa; border: 1px solid #ddd; border-radius: 6px;">
+                                <span class="material-icons-outlined object-icon-font">mic</span><span style="font-size: 16px;">器材卡片</span>
+                            </div>
+                            <div class="object" style="cursor: grab; width: max-content; padding: 8px 12px; pointer-events: none; background-color: #f44336; color: white; border: 1px solid #f44336; border-radius: 6px;">
+                                <span class="material-icons-outlined object-icon-font" style="color: white;">warning</span><span style="font-size: 16px; color: white;">損壞器材</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #444; line-height: 1.8;">
+                        <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">add_task</span> <b>建立任務編組</b>：藍色虛線框為「任務編組」。點按虛線標題可<b>更名</b>；</li>
+                        <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#f44336;">delete</span> <b>解散任務編組</b>：點按垃圾桶可解散任務，內部器材會自動歸位。</li>
+                        <li><label class="switch" style="transform: scale(0.6); margin: -4px -10px -4px -6px; vertical-align: middle;"><input type="checkbox" checked disabled><span class="slider"></span></label> <b>標記重點區塊</b>：點按標題右側的切換撥鈕，可以標註區塊，所有用戶同步能看見標題列變色。</li>
+                        <li><b>▲ 展開／收合區塊</b>：點按▼／▲開合區塊檢視或隱藏詳細內容。</li>
+                        <li><b>拖曳與調度</b>：按住白色/彩色的器材卡片，即可<b>拖曳</b>分派至不同區塊內。</li>
+                        <li><b>屬性編輯</b>：<b>點按</b>器材卡片可開啟編輯面板，為其賦予「臨時出勤狀態」或「實體歸位」。</li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+        
+        <div class="action-bar-container">
+            <div class="fine-line-raised"></div>
+            <div class="panel-action-bar-common" style="width: 100%; justify-content: center; gap: 20px;">
+                <button id="close-help-btn" style="background-color: #6c757d; color: white; border: none; padding: 10px 32px; font-size: 16px; border-radius: 6px; cursor: pointer; letter-spacing: 2px;">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 自訂確認對話框 -->
+    <div id="custom-confirm-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2999;"></div>
+    <div id="custom-confirm-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 3000; text-align: center; min-width: 280px;">
+        <h4 id="confirm-msg" style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: normal; line-height: 1.5;">確定要執行嗎？</h4>
+        <div style="display: flex; justify-content: center; gap: 15px;">
+            <button id="confirm-no-btn" style="background-color: #6c757d; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">取消</button>
+            <button id="confirm-yes-btn" style="background-color: #f44336; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">確定</button>
+        </div>
+    </div>
+
+    <!-- 自訂輸入對話框 -->
+    <div id="custom-prompt-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2999;"></div>
+    <div id="custom-prompt-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 3000; text-align: center; min-width: 300px;">
+        <h4 id="prompt-msg" style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 18px; font-weight: normal; line-height: 1.5;">請輸入名稱：</h4>
+        <input type="text" id="prompt-input" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; text-align: center;">
+        <div style="display: flex; justify-content: center; gap: 15px;">
+            <button id="prompt-cancel-btn" style="background-color: #6c757d; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">取消</button>
+            <button id="prompt-confirm-btn" style="background-color: #3f51b5; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">確定</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDqJ2LdvLiw6nIfelz2zBztegSfBDTfisg",
+          authDomain: "dragmanage-a071f.firebaseapp.com",
+          projectId: "dragmanage-a071f",
+          storageBucket: "dragmanage-a071f.firebasestorage.app",
+          messagingSenderId: "872170643684",
+          appId: "1:872170643684:web:38d0a30118e82c33a8ccf1",
+          measurementId: "G-5D3JYSWNH1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        const globalAppId = 'Production-AV-System';
+
+        let currentUser = null;
+        let firestoreTasks = [];
+        let firestoreStatuses = []; 
+        let firestoreHighlights = []; 
+        
+        let firestoreZoneAssignments = {};   
+        let firestoreStatusAssignments = {}; 
+        
+        let listenersInitialized = false; 
+
+        const initAuth = async () => {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    try {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } catch (e) {
+                        console.warn("Token 驗證失敗，改用匿名登入...", e);
+                        await signInAnonymously(auth);
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Firebase 連線初始化失敗:", error);
+            }
+        };
+        initAuth();
+
+        const startApp = () => {
             const API_KEY = 'AIzaSyDrKPFmjLr2-QmF9vf7nFqkC75z0M2I_B8';
             const SPREADSHEET_ID = '1UGZQa5FQY-3CaTtC7-8LfJz70sDX1UbkbVDAGciEZjQ';
-            
-            // 已記住的最新 API 網址
-            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfEii0Aj065c4wotKSjgZ6k4DVOXszARRIbL9JDDep-JyoIng5m7zSmFGa1XGssq4P/exec'; 
+            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwyVCWlyYNzPzTYsuALi8OT80D_ilTnOfgS0Mw-mR5Z9fP-lRUBJPAW0AgHJrX6DNm/exec'; 
             
             const zonesContainer = document.getElementById('zones-container');
             const categoryButtonsContainer = document.getElementById('category-buttons-container');
@@ -204,12 +404,16 @@
             const refreshButton = document.getElementById('refresh-button');
             const propertyArea = document.getElementById('property-area');
 
-            // 自訂顏色面板元素
             const openColorPanelBtn = document.getElementById('open-color-panel-btn');
             const colorSettingsPanel = document.getElementById('color-settings-panel');
-            const closeColorPanelBtn = document.getElementById('close-color-panel-btn');
-            const resetColorsBtn = document.getElementById('reset-colors-btn');
+            const cancelColorsBtn = document.getElementById('cancel-colors-btn');
+            const applyColorsBtn = document.getElementById('apply-colors-btn');
             const colorLegendContent = document.getElementById('color-legend-content');
+            const screenshotBtn = document.getElementById('screenshot-btn'); 
+            
+            const helpBtn = document.getElementById('help-btn'); 
+            const helpPanel = document.getElementById('help-panel');
+            const closeHelpBtn = document.getElementById('close-help-btn');
 
             let draggedItem = null;
             let zones = []; 
@@ -220,17 +424,163 @@
             let systemConfig = {};
             let dataHeaders = [];
 
-            // ⚠️ 關鍵變動：不再讀取 localStorage，改為純記憶體變數，稍後由試算表載入覆蓋
             let customColors = {};
+            let originalCustomColors = {};
 
-            // 提取為全域變數
+            let globalDynamicCategories = new Set();
+            let globalDynamicZones = new Set();
+            let globalDynamicStatusOptions = new Set();
+            let globalAllParsedObjects = [];
+
             let sysColId, sysColName, sysColSubName, sysColCategory, sysColZone, sysColStatus, sysColIcon;
 
             const LOCAL_STORAGE_ZONE_KEY = 'zoneState';
             const LOCAL_STORAGE_CATEGORY_KEY = 'categoryState';
             const LOCAL_STORAGE_PANEL_KEY = 'panelState';
             
-            // 計算顏色的亮度以決定字體該用黑或白
+            onAuthStateChanged(auth, (user) => {
+                currentUser = user;
+                if (user && !listenersInitialized) setupFirestoreListeners();
+            });
+
+            function setupFirestoreListeners() {
+                listenersInitialized = true;
+                const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
+                const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
+                const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
+                const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
+                const zoneAssignmentsRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
+                const statusAssignmentsRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
+
+                onSnapshot(colorsDocRef, (docSnap) => {
+                    if (docSnap.exists() && Object.keys(docSnap.data()).length > 0) {
+                        customColors = docSnap.data();
+                        applyCustomColors();
+                        if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
+                    }
+                }, (error) => console.error("配色庫同步錯誤:", error));
+
+                onSnapshot(tasksDocRef, (docSnap) => {
+                    if (docSnap.exists()) firestoreTasks = docSnap.data().list || [];
+                    else firestoreTasks = [];
+                    refreshFrontendView();
+                });
+
+                onSnapshot(statusesDocRef, (docSnap) => {
+                    if (docSnap.exists()) firestoreStatuses = docSnap.data().list || [];
+                    else firestoreStatuses = [];
+                    refreshFrontendView();
+                    if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
+                });
+
+                onSnapshot(highlightsDocRef, (docSnap) => {
+                    if (docSnap.exists()) firestoreHighlights = docSnap.data().list || [];
+                    else firestoreHighlights = [];
+                    applyHighlightsFromFirestore();
+                });
+
+                onSnapshot(zoneAssignmentsRef, (docSnap) => {
+                    if (docSnap.exists()) firestoreZoneAssignments = docSnap.data().map || {};
+                    else firestoreZoneAssignments = {};
+                    refreshFrontendView();
+                });
+
+                onSnapshot(statusAssignmentsRef, (docSnap) => {
+                    if (docSnap.exists()) firestoreStatusAssignments = docSnap.data().map || {};
+                    else firestoreStatusAssignments = {};
+                    refreshFrontendView();
+                });
+            }
+
+            function applyHighlightsFromFirestore() {
+                zones.forEach(zone => {
+                    const zName = zone.querySelector('.zone-name').getAttribute('data-val');
+                    const header = zone.querySelector('.zone-header');
+                    const toggle = zone.querySelector('.zone-highlight-toggle');
+                    if (firestoreHighlights.includes(zName)) {
+                        if (header) header.classList.add('highlighted');
+                        if (toggle) toggle.checked = true;
+                    } else {
+                        if (header) header.classList.remove('highlighted');
+                        if (toggle) toggle.checked = false;
+                    }
+                });
+            }
+
+            function showConfirm(message, onConfirm) {
+                const overlay = document.getElementById('custom-confirm-overlay');
+                const modal = document.getElementById('custom-confirm-modal');
+                const msgEl = document.getElementById('confirm-msg');
+                const yesBtn = document.getElementById('confirm-yes-btn');
+                const noBtn = document.getElementById('confirm-no-btn');
+                
+                msgEl.innerHTML = message.replace(/\n/g, '<br>');
+                overlay.style.display = 'block';
+                modal.style.display = 'block';
+                
+                const cleanup = () => {
+                    overlay.style.display = 'none';
+                    modal.style.display = 'none';
+                };
+                
+                const newYesBtn = yesBtn.cloneNode(true);
+                const newNoBtn = noBtn.cloneNode(true);
+                yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+                noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+                
+                newYesBtn.addEventListener('click', () => { cleanup(); onConfirm(); });
+                newNoBtn.addEventListener('click', cleanup);
+            }
+
+            function showPrompt(message, defaultValue, onConfirm) {
+                const overlay = document.getElementById('custom-prompt-overlay');
+                const modal = document.getElementById('custom-prompt-modal');
+                const msgEl = document.getElementById('prompt-msg');
+                const inputEl = document.getElementById('prompt-input');
+                const yesBtn = document.getElementById('prompt-confirm-btn');
+                const noBtn = document.getElementById('prompt-cancel-btn');
+
+                msgEl.innerHTML = message.replace(/\n/g, '<br>');
+                
+                const newYesBtn = yesBtn.cloneNode(true);
+                const newNoBtn = noBtn.cloneNode(true);
+                yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
+                noBtn.parentNode.replaceChild(newNoBtn, noBtn);
+                const newInputEl = inputEl.cloneNode(true);
+                inputEl.parentNode.replaceChild(newInputEl, inputEl);
+
+                newInputEl.value = defaultValue || '';
+                overlay.style.display = 'block';
+                modal.style.display = 'block';
+                
+                newInputEl.focus();
+                newInputEl.select();
+
+                const cleanup = () => {
+                    overlay.style.display = 'none';
+                    modal.style.display = 'none';
+                };
+
+                newInputEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { cleanup(); onConfirm(newInputEl.value); }
+                    if (e.key === 'Escape') cleanup();
+                });
+
+                newYesBtn.addEventListener('click', () => { cleanup(); onConfirm(newInputEl.value); });
+                newNoBtn.addEventListener('click', cleanup);
+            }
+
+            function showMessage(message, color = 'green') {
+                messageBox.textContent = message; 
+                messageBox.style.backgroundColor = color;
+                messageBox.style.display = 'block'; 
+                messageBox.style.opacity = 1;
+                setTimeout(() => {
+                    messageBox.style.opacity = 0;
+                    setTimeout(() => messageBox.style.display = 'none', 500);
+                }, 3000);
+            }
+
             function getContrastYIQ(hexcolor){
                 if (!hexcolor) return 'black';
                 hexcolor = hexcolor.replace("#", "");
@@ -242,19 +592,29 @@
                 return (yiq >= 128) ? 'black' : 'white';
             }
 
-            // 套用自訂顏色到全局 CSS
             function applyCustomColors() {
                 let cssString = '';
                 for (const [status, color] of Object.entries(customColors)) {
+                    if (status === 'ZONE_HIGHLIGHT') continue; 
                     if (color && color.trim() !== '') {
                         const textColor = getContrastYIQ(color);
-                        // 覆寫卡片物件與狀態按鈕的顏色
                         cssString += `
                             .object[data-status="${status}"] { background-color: ${color} !important; color: ${textColor} !important; border-color: ${color} !important; }
                             .object[data-status="${status}"] span { color: ${textColor} !important; }
                             .status-button[data-status="${status}"].active { background-color: ${color} !important; color: ${textColor} !important; border-color: ${color} !important; }
                         `;
                     }
+                }
+                
+                if (customColors['ZONE_HIGHLIGHT'] && customColors['ZONE_HIGHLIGHT'].trim() !== '') {
+                    const zhColor = customColors['ZONE_HIGHLIGHT'];
+                    const zhTextColor = getContrastYIQ(zhColor);
+                    cssString += `
+                        .zone-header.highlighted { background-color: ${zhColor} !important; color: ${zhTextColor} !important; }
+                        .zone-header.highlighted h3, .zone-header.highlighted .zone-name { color: ${zhTextColor} !important; }
+                        .zone-header.highlighted .zone-count { color: ${zhTextColor} !important; opacity: 0.85; }
+                        .zone-header.highlighted .zone-toggle-icon { color: ${zhTextColor} !important; }
+                    `;
                 }
                 document.getElementById('user-custom-colors').textContent = cssString;
             }
@@ -281,10 +641,15 @@
             }
 
             function saveState() {
-                const expandedZones = Array.from(document.querySelectorAll('.zone.expanded')).map(zone => zone.id);
+                const expandedZones = Array.from(zonesContainer.querySelectorAll('.zone.expanded'))
+                    .map(zone => {
+                        const nameEl = zone.querySelector('.zone-name');
+                        return nameEl ? nameEl.getAttribute('data-val') : null;
+                    })
+                    .filter(val => val !== null);
                 localStorage.setItem(LOCAL_STORAGE_ZONE_KEY, JSON.stringify(expandedZones));
 
-                const activeCategories = Array.from(document.querySelectorAll('.category-button.active')).map(btn => btn.getAttribute('data-category'));
+                const activeCategories = Array.from(document.querySelectorAll('#category-buttons-container .category-button.active')).map(btn => btn.getAttribute('data-category'));
                 localStorage.setItem(LOCAL_STORAGE_CATEGORY_KEY, JSON.stringify(activeCategories));
                 
                 localStorage.setItem(LOCAL_STORAGE_PANEL_KEY, JSON.stringify({
@@ -297,22 +662,26 @@
             function loadState() {
                 const savedZones = localStorage.getItem(LOCAL_STORAGE_ZONE_KEY);
                 if (savedZones) {
-                    JSON.parse(savedZones).forEach(zoneId => {
-                        const zone = document.getElementById(zoneId);
-                        if (zone) zone.classList.add('expanded');
+                    const expandedDataVals = JSON.parse(savedZones);
+                    zones.forEach(zone => {
+                        const zName = zone.querySelector('.zone-name').getAttribute('data-val');
+                        if (expandedDataVals.includes(zName)) {
+                            zone.classList.add('expanded');
+                        } else {
+                            zone.classList.remove('expanded');
+                        }
                     });
                 }
                 
                 const savedCategories = localStorage.getItem(LOCAL_STORAGE_CATEGORY_KEY);
                 if (savedCategories) {
                     const activeCategories = JSON.parse(savedCategories);
-                    document.querySelectorAll('.category-button').forEach(btn => {
+                    document.querySelectorAll('#category-buttons-container .category-button').forEach(btn => {
                         if (activeCategories.includes(btn.getAttribute('data-category'))) {
                             btn.classList.add('active');
                         } else {
                             btn.classList.remove('active');
                         }
-                        // 同步更新連動的 icon (眼睛)
                         const iconSpan = btn.querySelector('.material-icons-outlined');
                         if (iconSpan) {
                             iconSpan.textContent = btn.classList.contains('active') ? 'visibility' : 'visibility_off';
@@ -343,13 +712,121 @@
                 }
             }
 
+            function refreshFrontendView() {
+                let currentZones = new Set();
+                firestoreTasks.forEach(t => currentZones.add(t));
+                globalDynamicZones.forEach(z => currentZones.add(z));
+                
+                let currentStatuses = new Set(globalDynamicStatusOptions);
+                firestoreStatuses.forEach(s => currentStatuses.add(s));
+                statusOptions = Array.from(currentStatuses);
+
+                globalAllParsedObjects.forEach(obj => {
+                    const uid = obj._uid;
+                    obj._zone = firestoreZoneAssignments[uid] || obj._originalZone;
+                    obj._stat = firestoreStatusAssignments[uid] || obj._originalStat;
+                    obj[sysColZone] = obj._zone;
+                    obj[sysColStatus] = obj._stat;
+                });
+
+                zonesContainer.innerHTML = '';
+                allObjects = [];
+                
+                renderZones(Array.from(currentZones));
+                renderCategories(Array.from(globalDynamicCategories));
+                renderObjects(globalAllParsedObjects);
+                loadState();
+                
+                applyHighlightsFromFirestore();
+            }
+
+            document.getElementById('add-task-btn').addEventListener('click', async () => {
+                if (!currentUser) return showMessage("正在連線至同步資料庫，請稍候...", "red");
+
+                let baseName = "未命名";
+                let finalName = `[任務]${baseName}`;
+                let counter = 1;
+                while(firestoreTasks.includes(finalName) || globalDynamicZones.has(finalName)) {
+                    finalName = `[任務]${baseName}(${counter})`;
+                    counter++;
+                }
+                
+                firestoreTasks.unshift(finalName); 
+                
+                let expandedZones = JSON.parse(localStorage.getItem(LOCAL_STORAGE_ZONE_KEY) || '[]');
+                if (!expandedZones.includes(finalName)) {
+                    expandedZones.push(finalName);
+                    localStorage.setItem(LOCAL_STORAGE_ZONE_KEY, JSON.stringify(expandedZones));
+                }
+
+                refreshFrontendView();
+                
+                setTimeout(() => {
+                    const firstTaskNameSpan = document.querySelector('.task-zone .editable-task-name');
+                    if(firstTaskNameSpan) {
+                        firstTaskNameSpan.focus();
+                        const range = document.createRange();
+                        range.selectNodeContents(firstTaskNameSpan);
+                        const sel = window.getSelection();
+                        sel.removeAllRanges();
+                        sel.addRange(range);
+                    }
+                }, 50);
+
+                const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
+                await setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error("任務建立失敗", e));
+            });
+
+            screenshotBtn.addEventListener('click', async () => {
+                try {
+                    showMessage("正在產生截圖，請稍候...", "#ff9800");
+                    floatingPanel.style.display = 'none';
+                    refreshButton.style.display = 'none';
+                    messageBox.style.display = 'none';
+
+                    await new Promise(resolve => setTimeout(resolve, 150));
+
+                    const canvas = await html2canvas(document.body, {
+                        useCORS: true,     
+                        scale: 2,          
+                        backgroundColor: '#f4f7f9' 
+                    });
+
+                    floatingPanel.style.display = 'flex';
+                    refreshButton.style.display = 'none'; 
+
+                    const imgData = canvas.toDataURL('image/png');
+                    const link = document.createElement('a');
+                    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+                    link.download = `影音器材調度_${dateStr}.png`;
+                    link.href = imgData;
+                    link.click();
+
+                    showMessage("截圖下載完成！", "green");
+                } catch (error) {
+                    console.error("截圖失敗:", error);
+                    floatingPanel.style.display = 'flex';
+                    refreshButton.style.display = 'none';
+                    showMessage("截圖產生失敗", "red");
+                }
+            });
+
+            helpBtn.addEventListener('click', () => {
+                helpPanel.classList.add('visible');
+                floatingPanel.classList.remove('expanded');
+                stopAutoRefresh();
+            });
+            closeHelpBtn.addEventListener('click', () => {
+                helpPanel.classList.remove('visible');
+                startAutoRefresh();
+            });
+
             async function fetchSpreadsheetData() {
                 refreshButton.classList.add('loading'); 
                 
                 try {
                     const configUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!A:Z?key=${API_KEY}`;
                     const objectsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/總表!A:Z?key=${API_KEY}`;
-                    // ⚠️ 關鍵變動：新增讀取「配色庫」API (使用 catch 避免因為還沒建立表單而導致錯誤)
                     const colorsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/配色庫!A2:C?key=${API_KEY}`;
                     
                     const [configRes, objectsRes, colorsRes] = await Promise.all([ 
@@ -360,19 +837,24 @@
                     
                     const configData = await configRes.json();
                     const objectsData = await objectsRes.json();
-                    
-                    // 解析雲端配色庫
+
+                    let legacySheetColors = {};
                     if (colorsRes) {
                         const colorsData = await colorsRes.json();
-                        customColors = {}; // 清空並用遠端資料覆蓋
                         if (colorsData.values) {
                             colorsData.values.forEach(row => {
-                                if (row[0] && row[2]) { // [0] 是物件中文名, [2] 是色碼
-                                    customColors[row[0].trim()] = row[2].trim();
-                                }
+                                if (row[0] && row[2]) legacySheetColors[row[0].trim()] = row[2].trim();
                             });
                         }
-                        applyCustomColors(); // 套用最新從雲端抓下來的顏色
+                    }
+
+                    if (Object.keys(customColors).length === 0 && Object.keys(legacySheetColors).length > 0) {
+                        customColors = legacySheetColors;
+                        applyCustomColors();
+                        if (currentUser) {
+                            const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
+                            setDoc(colorsDocRef, customColors).catch(e => console.warn("配色遷移寫入失敗", e));
+                        }
                     }
 
                     systemConfig = {};
@@ -408,11 +890,16 @@
                     sysColIcon = systemConfig['SYS_COL_ICON'] || dataHeaders[6] || '圖標';    
                     sysColSubName = systemConfig['SYS_COL_SUB_NAME'] || ''; 
 
-                    let dynamicCategories = new Set(definedCategories);
-                    let dynamicZones = new Set(definedZones);
-                    let dynamicStatusOptions = new Set(definedStatuses);
-                    
-                    let allParsedObjects = [];
+                    globalDynamicCategories.clear();
+                    globalDynamicZones.clear();
+                    globalDynamicStatusOptions.clear();
+                    globalAllParsedObjects = [];
+
+                    definedCategories.forEach(c => globalDynamicCategories.add(c));
+                    definedZones.forEach(z => globalDynamicZones.add(z));
+                    definedStatuses.forEach(s => globalDynamicStatusOptions.add(s));
+
+                    const generatedUids = new Set();
 
                     rowsData.forEach((row, index) => {
                         const objData = {};
@@ -426,33 +913,27 @@
                         const zone = objData[sysColZone] || '未分類區域';
                         const stat = objData[sysColStatus] || '正常';
                         
-                        dynamicCategories.add(cat);
-                        dynamicZones.add(zone);
-                        dynamicStatusOptions.add(stat);
+                        globalDynamicCategories.add(cat);
+                        globalDynamicZones.add(zone);
+                        globalDynamicStatusOptions.add(stat);
                         
+                        let rawUid = objData[sysColId] ? String(objData[sysColId]).trim() : '';
+                        if (!rawUid || generatedUids.has(rawUid)) {
+                            let fallbackName = objData[sysColName] ? String(objData[sysColName]).trim() : 'ITEM';
+                            rawUid = `${rawUid || fallbackName}_R${index + 2}`;
+                        }
+                        generatedUids.add(rawUid);
+                        
+                        objData._uid = rawUid;
                         objData._cat = cat;
-                        objData._zone = zone;
-                        objData._stat = stat;
+                        objData._originalZone = zone;
+                        objData._originalStat = stat;
                         objData._rowIndex = index + 2;
                         
-                        allParsedObjects.push(objData);
+                        globalAllParsedObjects.push(objData);
                     });
 
-                    statusOptions = Array.from(dynamicStatusOptions);
-
-                    zonesContainer.innerHTML = '';
-                    allObjects = [];
-
-                    renderZones(Array.from(dynamicZones));
-                    renderCategories(Array.from(dynamicCategories));
-                    renderObjects(allParsedObjects);
-                    
-                    // 同步更新自訂顏色面板的圖例
-                    if (colorSettingsPanel.classList.contains('visible')) {
-                        renderColorLegend();
-                    }
-                    
-                    loadState();
+                    refreshFrontendView();
 
                 } catch (error) {
                     console.error("無法載入試算表資料:", error);
@@ -461,31 +942,160 @@
                     refreshButton.classList.remove('loading'); 
                 }
             }
-            
-            function showMessage(message, color = 'green') {
-                messageBox.textContent = message; messageBox.style.backgroundColor = color;
-                messageBox.style.display = 'block'; messageBox.style.opacity = 1;
-                setTimeout(() => {
-                    messageBox.style.opacity = 0;
-                    setTimeout(() => messageBox.style.display = 'none', 500);
-                }, 3000);
-            }
 
             function renderZones(zonesList) {
                 if (!zonesList || zonesList.length === 0) return;
-                zonesList.forEach((zoneName, index) => {
+                
+                const taskZones = zonesList.filter(z => z.startsWith('[任務]'));
+                const physicalZones = zonesList.filter(z => !z.startsWith('[任務]'));
+                const sortedZonesList = [...taskZones, ...physicalZones];
+
+                sortedZonesList.forEach((zoneName, index) => {
+                    const isTask = zoneName.startsWith('[任務]');
+                    const displayZoneName = isTask ? zoneName.replace('[任務]', '') : zoneName;
+                    
+                    const isLocalTask = firestoreTasks.includes(zoneName);
+                    const isHighlighted = firestoreHighlights.includes(zoneName); 
+
                     const zoneDiv = document.createElement('div');
-                    zoneDiv.className = 'zone'; zoneDiv.id = `zone${index + 1}`;
+                    zoneDiv.className = isTask ? 'zone task-zone' : 'zone';
+                    zoneDiv.id = `zone${index + 1}`;
+                    
+                    let deleteBtnHtml = '';
+                    if (isTask && isLocalTask) {
+                        deleteBtnHtml = `<button class="delete-task-btn" title="移除任務"><span class="material-icons-outlined" style="font-size: 18px;">delete</span></button>`;
+                    }
+
+                    const nameSpanHtml = isTask 
+                        ? `<span class="zone-name editable-task-name" data-val="${zoneName}" contenteditable="true" spellcheck="false" title="點按編輯名稱">${displayZoneName}</span>` 
+                        : `<span class="zone-name" data-val="${zoneName}">${displayZoneName}</span>`;
+
                     zoneDiv.innerHTML = `
-                        <div class="zone-header">
-                            <h3><span class="zone-name">${zoneName}</span><span class="zone-count">--(0)項</span></h3>
-                            <span class="zone-toggle-icon">▼</span>
+                        <div class="zone-header ${isHighlighted ? 'highlighted' : ''}">
+                            <h3 style="color: ${isTask ? '#3f51b5' : '#333'};">
+                                ${isTask ? '<span class="material-icons-outlined" style="margin-right:6px; font-size:22px;">assignment</span>' : ''}
+                                ${nameSpanHtml}
+                                <span class="zone-count">--(0)項</span>
+                            </h3>
+                            <div style="display: flex; align-items: center;">
+                                ${deleteBtnHtml}
+                                <label class="switch" title="標記熱區">
+                                    <input type="checkbox" class="zone-highlight-toggle" ${isHighlighted ? 'checked' : ''}>
+                                    <span class="slider"></span>
+                                </label>
+                                <span class="zone-toggle-icon">▼</span>
+                            </div>
                         </div>
                         <div class="zone-content"></div>
                     `;
                     zonesContainer.appendChild(zoneDiv);
+
+                    if (isTask) {
+                        const nameSpan = zoneDiv.querySelector('.editable-task-name');
+                        const oldVal = zoneName;
+
+                        nameSpan.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                nameSpan.blur(); 
+                            }
+                        });
+
+                        nameSpan.addEventListener('blur', async () => {
+                            let newText = nameSpan.textContent.trim();
+                            if (newText === '') {
+                                nameSpan.textContent = displayZoneName; 
+                                return;
+                            }
+                            
+                            let newVal = `[任務]${newText}`;
+                            if (newVal !== oldVal) {
+                                if (firestoreTasks.includes(newVal) || Array.from(globalDynamicZones).includes(newVal)) {
+                                    showMessage("任務名稱已存在，請使用其他名稱", "red");
+                                    nameSpan.textContent = displayZoneName;
+                                    return;
+                                }
+                                
+                                const idx = firestoreTasks.indexOf(oldVal);
+                                if (idx !== -1) {
+                                    firestoreTasks[idx] = newVal;
+                                    refreshFrontendView(); 
+                                    
+                                    const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
+                                    await setDoc(tasksDocRef, { list: firestoreTasks });
+                                }
+
+                                const hIdx = firestoreHighlights.indexOf(oldVal);
+                                if (hIdx !== -1) {
+                                    firestoreHighlights[hIdx] = newVal;
+                                    const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
+                                    setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(e => console.error(e));
+                                }
+                                
+                                let hasAssignmentsChanged = false;
+                                for (let uid in firestoreZoneAssignments) {
+                                    if (firestoreZoneAssignments[uid] === oldVal) {
+                                        firestoreZoneAssignments[uid] = newVal;
+                                        hasAssignmentsChanged = true;
+                                    }
+                                }
+                                if (hasAssignmentsChanged) {
+                                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
+                                    setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
+                                }
+                                
+                                if(globalDynamicZones.has(oldVal)) {
+                                    globalDynamicZones.delete(oldVal);
+                                    globalDynamicZones.add(newVal);
+                                }
+                                
+                                showMessage("任務名稱已更新", "green");
+                                refreshFrontendView(); 
+                            }
+                        });
+
+                        if (isLocalTask) {
+                            const delBtn = zoneDiv.querySelector('.delete-task-btn');
+                            if (delBtn) {
+                                delBtn.addEventListener('click', (e) => {
+                                    e.stopPropagation(); 
+                                    
+                                    showConfirm(`確定要解散任務「${nameSpan.textContent.trim()}」嗎？\n(任務內的器材將會自動歸位)`, async () => {
+                                        firestoreTasks = firestoreTasks.filter(t => t !== oldVal);
+                                        globalDynamicZones.delete(oldVal);
+                                        
+                                        let hasAssignmentsChanged = false;
+                                        for (let uid in firestoreZoneAssignments) {
+                                            if (firestoreZoneAssignments[uid] === oldVal) {
+                                                delete firestoreZoneAssignments[uid];
+                                                hasAssignmentsChanged = true;
+                                            }
+                                        }
+
+                                        refreshFrontendView(); 
+                                        
+                                        const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
+                                        await setDoc(tasksDocRef, { list: firestoreTasks });
+                                        
+                                        if (firestoreHighlights.includes(oldVal)) {
+                                            firestoreHighlights = firestoreHighlights.filter(t => t !== oldVal);
+                                            const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
+                                            setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(e => console.error(e));
+                                        }
+                                        
+                                        if (hasAssignmentsChanged) {
+                                            const assignRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
+                                            await setDoc(assignRef, { map: firestoreZoneAssignments }).catch(e => console.error(e));
+                                        }
+                                        
+                                        showMessage("任務已解散，器材皆已歸位", "green");
+                                    });
+                                });
+                            }
+                        }
+                    }
                 });
-                zones = Array.from(document.querySelectorAll('.zone'));
+                zones = Array.from(zonesContainer.querySelectorAll('.zone'));
                 attachZoneEventListeners();
                 updateToggleButton();
             }
@@ -497,7 +1107,6 @@
                     const button = document.createElement('button');
                     button.className = 'category-button active';
                     button.setAttribute('data-category', categoryName);
-                    // 初始化時給予開啟的眼睛圖標
                     button.innerHTML = `<span class="material-icons-outlined" style="font-size: 20px;">visibility</span><span>${categoryName}</span>`;
                     categoryButtonsContainer.appendChild(button);
                 });
@@ -542,7 +1151,7 @@
                     
                     allObjects.push(objectDiv);
                     
-                    const targetZone = zones.find(zone => zone.querySelector('.zone-name').textContent === objData._zone);
+                    const targetZone = zones.find(zone => zone.querySelector('.zone-name').getAttribute('data-val') === objData._zone);
                     if (targetZone) {
                         targetZone.querySelector('.zone-content').appendChild(objectDiv);
                     }
@@ -555,7 +1164,36 @@
             function attachZoneEventListeners() {
                 zones.forEach(zone => {
                     const header = zone.querySelector('.zone-header');
-                    header.addEventListener('click', () => {
+                    
+                    const switchLabel = header.querySelector('.switch');
+                    if (switchLabel) {
+                        switchLabel.addEventListener('click', (e) => e.stopPropagation());
+                    }
+                    
+                    const toggleInput = header.querySelector('.zone-highlight-toggle');
+                    if (toggleInput) {
+                        toggleInput.addEventListener('change', async (e) => {
+                            const zName = zone.querySelector('.zone-name').getAttribute('data-val');
+                            if (e.target.checked) {
+                                header.classList.add('highlighted');
+                                if (!firestoreHighlights.includes(zName)) firestoreHighlights.push(zName);
+                            } else {
+                                header.classList.remove('highlighted');
+                                firestoreHighlights = firestoreHighlights.filter(name => name !== zName);
+                            }
+                            
+                            applyHighlightsFromFirestore(); 
+                            
+                            if (currentUser) {
+                                const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
+                                await setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(err => console.error("標記儲存失敗", err));
+                            }
+                        });
+                    }
+
+                    header.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('editable-task-name')) return;
+                        
                         zones.forEach(z => { if (z !== zone) z.classList.remove('expanded'); });
                         zone.classList.toggle('expanded');
                         updateToggleButton(); saveState(); 
@@ -570,20 +1208,41 @@
 
                         dropArea.addEventListener('dragleave', (e) => { dropArea.classList.remove('drag-over'); });
 
-                        dropArea.addEventListener('drop', (e) => {
+                        dropArea.addEventListener('drop', async (e) => {
                             e.preventDefault(); dropArea.classList.remove('drag-over');
                             if (draggedItem) {
-                                zone.querySelector('.zone-content').appendChild(draggedItem);
+                                const objData = draggedItem.$data;
+                                const uid = objData._uid;
                                 const rowIndex = draggedItem.getAttribute('data-row-index');
-                                const newZone = zone.querySelector('.zone-name').textContent;
+                                const newZone = zone.querySelector('.zone-name').getAttribute('data-val');
                                 
-                                updateObjectData(rowIndex, { [sysColZone]: newZone });
+                                if (objData._zone === newZone) return; 
                                 
-                                draggedItem.setAttribute('data-zone', newZone); 
-                                draggedItem.$data[sysColZone] = newZone; 
-                                draggedItem.$data._zone = newZone;
-                                saveState(); 
-                                updateZoneCounts(); 
+                                const isTask = newZone.startsWith('[任務]');
+
+                                if (isTask) {
+                                    firestoreZoneAssignments[uid] = newZone;
+                                    refreshFrontendView(); 
+                                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
+                                    await setDoc(ref, { map: firestoreZoneAssignments });
+                                } else {
+                                    let changedOverlay = false;
+                                    if (firestoreZoneAssignments[uid]) {
+                                        delete firestoreZoneAssignments[uid];
+                                        changedOverlay = true;
+                                    }
+                                    const targetObj = globalAllParsedObjects.find(o => o._uid === uid);
+                                    if (targetObj) targetObj._originalZone = newZone;
+
+                                    refreshFrontendView();
+
+                                    if (changedOverlay) {
+                                        const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
+                                        await setDoc(ref, { map: firestoreZoneAssignments });
+                                    }
+
+                                    updateObjectData(rowIndex, { [sysColZone]: newZone });
+                                }
                             }
                         });
                     });
@@ -622,11 +1281,16 @@
                                 const value = item.$data[header];
                                 if (value !== undefined && value !== '') {
                                     let displayValue = value;
-                                    // 結合 link 圖標呈現更精緻的網址超連結
                                     if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
                                         displayValue = `<a href="${value}" target="_blank" style="color: #3f51b5; text-decoration: underline; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
                                             <span class="material-icons-outlined" style="font-size: 18px;">link</span>按我查閱
                                         </a>`;
+                                    }
+                                    if (header === sysColZone && typeof displayValue === 'string') {
+                                        displayValue = item.$data._zone.replace('[任務]', '');
+                                    }
+                                    if (header === sysColStatus && typeof displayValue === 'string') {
+                                        displayValue = item.$data._stat;
                                     }
                                     previewHTML += `<div style="margin-bottom: 5px;"><strong>${header}：</strong> <span>${displayValue}</span></div>`;
                                 }
@@ -654,45 +1318,111 @@
                 const objData = item.$data;
 
                 dataHeaders.forEach((header, index) => { 
-                    if (header === sysColId || index === 6 || index === 7 || index === 8) return;
+                    if (header === sysColId || header === sysColCategory || index === 6 || index === 7 || index === 8) return;
 
                     const rowDiv = document.createElement('div');
                     rowDiv.innerHTML = `<span class="label">${header}：</span>`;
                     
                     if (header === sysColZone) {
-                        const container = document.createElement('div');
-                        container.className = 'status-buttons-container';
-                        container.id = 'dynamic-zone-container';
-                        zones.map(z => z.querySelector('.zone-name').textContent).forEach(zName => {
+                        const wrapper = document.createElement('div');
+                        wrapper.id = 'dynamic-zone-container';
+                        wrapper.style.width = '100%';
+
+                        const taskDiv = document.createElement('div');
+                        taskDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:5px; margin-bottom:8px; color:#3f51b5; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">assignment</span> 任務編組 (調度出勤)</div>';
+                        const taskContainer = document.createElement('div');
+                        taskContainer.className = 'status-buttons-container';
+                        taskDiv.appendChild(taskContainer);
+
+                        const physDiv = document.createElement('div');
+                        physDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:15px; margin-bottom:8px; color:#666; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">place</span> 實體地點 (歸位)</div>';
+                        const physContainer = document.createElement('div');
+                        physContainer.className = 'status-buttons-container';
+                        physDiv.appendChild(physContainer);
+
+                        const allZoneBtns = [];
+
+                        zones.map(z => z.querySelector('.zone-name').getAttribute('data-val')).forEach(zName => {
+                            const isTask = zName.startsWith('[任務]');
+                            const displayZName = isTask ? zName.replace('[任務]', '') : zName;
+
                             const btn = document.createElement('button');
-                            btn.textContent = zName; btn.className = 'status-button zone-button';
-                            if (zName === objData[header] || zName === objData._zone) btn.classList.add('active');
+                            btn.textContent = displayZName;
+                            btn.className = 'status-button zone-button';
+                            btn.setAttribute('data-val', zName); 
+
+                            if (zName === objData._zone) {
+                                btn.classList.add('active');
+                            }
+
                             btn.addEventListener('click', () => {
-                                Array.from(container.children).forEach(b => b.classList.remove('active'));
+                                allZoneBtns.forEach(b => b.classList.remove('active'));
                                 btn.classList.add('active');
                             });
-                            container.appendChild(btn);
+
+                            allZoneBtns.push(btn);
+
+                            if (isTask) {
+                                taskContainer.appendChild(btn);
+                            } else {
+                                physContainer.appendChild(btn);
+                            }
                         });
-                        rowDiv.appendChild(container);
+
+                        if(taskContainer.children.length > 0) wrapper.appendChild(taskDiv);
+                        if(physContainer.children.length > 0) wrapper.appendChild(physDiv);
+
+                        rowDiv.style.alignItems = 'flex-start'; 
+                        rowDiv.appendChild(wrapper);
                     } 
                     else if (header === sysColStatus) {
-                        const container = document.createElement('div');
-                        container.className = 'status-buttons-container';
-                        container.id = 'dynamic-status-container';
+                        const wrapper = document.createElement('div');
+                        wrapper.id = 'dynamic-status-container'; 
+                        wrapper.style.width = '100%';
+
+                        const customDiv = document.createElement('div');
+                        customDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:5px; margin-bottom:8px; color:#f44336; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">bookmark_add</span> 臨時標記 (圖層覆蓋)</div>';
+                        const customContainer = document.createElement('div');
+                        customContainer.className = 'status-buttons-container';
+                        customDiv.appendChild(customContainer);
+
+                        const nativeDiv = document.createElement('div');
+                        nativeDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:15px; margin-bottom:8px; color:#666; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">inventory_2</span> 系統狀態 (試算表歸檔)</div>';
+                        const nativeContainer = document.createElement('div');
+                        nativeContainer.className = 'status-buttons-container';
+                        nativeDiv.appendChild(nativeContainer);
+
+                        const allStatusBtns = [];
+
                         statusOptions.forEach(sName => {
+                            const isCustomStatus = firestoreStatuses.includes(sName);
+
                             const btn = document.createElement('button');
                             btn.textContent = sName; 
                             btn.className = 'status-button';
                             btn.setAttribute('data-status', sName); 
                             
-                            if (sName === objData[header] || sName === objData._stat) btn.classList.add('active');
+                            if (sName === objData._stat) btn.classList.add('active');
+                            
                             btn.addEventListener('click', () => {
-                                Array.from(container.children).forEach(b => b.classList.remove('active'));
+                                allStatusBtns.forEach(b => b.classList.remove('active'));
                                 btn.classList.add('active');
                             });
-                            container.appendChild(btn);
+                            
+                            allStatusBtns.push(btn);
+
+                            if (isCustomStatus) {
+                                customContainer.appendChild(btn);
+                            } else {
+                                nativeContainer.appendChild(btn);
+                            }
                         });
-                        rowDiv.appendChild(container);
+
+                        if(customContainer.children.length > 0) wrapper.appendChild(customDiv);
+                        if(nativeContainer.children.length > 0) wrapper.appendChild(nativeDiv);
+
+                        rowDiv.style.alignItems = 'flex-start';
+                        rowDiv.appendChild(wrapper);
                     } 
                     else {
                         const input = document.createElement('input');
@@ -706,34 +1436,19 @@
                 });
             }
 
-            // ---------------- 雲端配色庫同步功能 ---------------- //
-            
-            // 將當前「所有可改色的項目」及它們的「最新色碼」一次性打包送給後端覆寫
             async function saveAllColors() {
-                if (APPS_SCRIPT_URL.includes('請在此貼上')) return;
-                
-                // 整理出所有 statusOptions 及其當前對應的色碼 (若無則為空字串)
+                if (!currentUser) return showMessage("尚未連線至同步資料庫", "red");
                 const payloadData = {};
                 statusOptions.forEach(status => {
                     payloadData[status] = customColors[status] || '';
                 });
+                payloadData['ZONE_HIGHLIGHT'] = customColors['ZONE_HIGHLIGHT'] || '';
 
                 try {
-                    const response = await fetch(APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ 
-                            action: 'updateAllColors', 
-                            data: payloadData 
-                        })
-                    });
-                    const responseText = await response.text();
-                    const result = JSON.parse(responseText);
-                    if (result.success) {
-                        console.log("已成功同步完整配色庫至雲端");
-                    }
+                    const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
+                    await setDoc(colorsDocRef, payloadData);
                 } catch(e) {
-                    console.error("更新完整配色庫失敗", e);
+                    console.error("更新配色庫失敗", e);
                     showMessage("顏色存檔時發生網路錯誤", 'red');
                 }
             }
@@ -741,24 +1456,102 @@
             function renderColorLegend() {
                 colorLegendContent.innerHTML = '';
                 
+                const mockZone = document.createElement('div');
+                mockZone.className = 'zone expanded';
+                mockZone.style.marginBottom = '10px';
+                mockZone.style.border = '1px solid #ddd';
+                mockZone.style.boxShadow = 'none'; 
+                mockZone.innerHTML = `
+                    <div class="zone-header highlighted" style="cursor: pointer;" title="點按更換標註色">
+                        <h3><span class="zone-name">標題列標註切換色(點按圖例改色)</span></h3>
+                        <div style="display: flex; align-items: center;">
+                            <label class="switch" title="切換預覽">
+                                <input type="checkbox" checked class="mock-highlight-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="zone-toggle-icon">▼</span>
+                        </div>
+                    </div>
+                    <div class="zone-content" id="mock-zone-content" style="padding: 15px;"></div>
+                `;
+                colorLegendContent.appendChild(mockZone);
+
+                const headerLegend = mockZone.querySelector('.zone-header');
+                const headerToggle = mockZone.querySelector('.mock-highlight-toggle');
+                
+                const headerColorInput = document.createElement('input');
+                headerColorInput.type = 'color';
+                headerColorInput.style.display = 'none';
+                if (customColors['ZONE_HIGHLIGHT']) { headerColorInput.value = customColors['ZONE_HIGHLIGHT']; }
+                
+                headerLegend.addEventListener('click', (e) => {
+                    if (e.target === headerToggle || e.target.closest('.switch')) {
+                        if(headerToggle.checked) headerLegend.classList.add('highlighted');
+                        else headerLegend.classList.remove('highlighted');
+                        return;
+                    }
+                    headerColorInput.click();
+                });
+                
+                headerColorInput.addEventListener('input', (e) => {
+                    customColors['ZONE_HIGHLIGHT'] = e.target.value;
+                    applyCustomColors();
+                    if (!headerToggle.checked) {
+                        headerToggle.checked = true;
+                        headerLegend.classList.add('highlighted');
+                    }
+                });
+                
+                headerColorInput.addEventListener('change', (e) => {
+                    customColors['ZONE_HIGHLIGHT'] = e.target.value;
+                    applyCustomColors();
+                });
+                colorLegendContent.appendChild(headerColorInput);
+
+                const mockPropArea = document.createElement('div');
+                mockPropArea.className = 'property-area visible';
+                mockPropArea.style.maxHeight = 'none';
+                mockPropArea.style.marginBottom = '0';
+                mockPropArea.innerHTML = `
+                    <div style="background-color: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                        <div style="margin-bottom: 15px; font-weight: bold; color: #333; display: flex; align-items: center; gap: 8px;">
+                            <span class="material-icons-outlined">touch_app</span> 屬性面板狀態按鈕預覽 (點按亦可改色)
+                        </div>
+                        <div style="display: flex; align-items: center;">
+                            <span class="label">狀態：</span>
+                            <div class="status-buttons-container" id="mock-status-container"></div>
+                        </div>
+                    </div>
+                `;
+                colorLegendContent.appendChild(mockPropArea);
+
+                const mockZoneContent = mockZone.querySelector('#mock-zone-content');
+                const mockStatusContainer = mockPropArea.querySelector('#mock-status-container');
+                
                 statusOptions.forEach(status => {
-                    const row = document.createElement('div');
-                    row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
-                    row.style.gap = '10px'; row.style.padding = '10px 15px'; row.style.backgroundColor = '#f9f9f9';
-                    row.style.borderRadius = '8px'; row.style.border = '1px solid #eee';
-
-                    const label = document.createElement('div');
-                    label.style.fontWeight = 'bold'; label.style.width = '70px'; label.style.flexShrink = '0';
-                    label.textContent = status;
-
+                    const isCustomStatus = firestoreStatuses.includes(status);
+                    
                     const objLegend = document.createElement('div');
-                    objLegend.className = 'object'; objLegend.setAttribute('data-status', status);
-                    objLegend.style.flex = '1'; objLegend.style.cursor = 'pointer'; objLegend.style.marginBottom = '0'; 
-                    objLegend.innerHTML = `<span>物件圖例</span>`;
+                    objLegend.className = 'object'; 
+                    objLegend.setAttribute('data-status', status);
+                    objLegend.style.cursor = 'pointer'; 
+                    
+                    objLegend.style.display = 'flex';
+                    objLegend.style.alignItems = 'center';
+                    objLegend.style.justifyContent = 'flex-start';
+                    objLegend.style.padding = '8px 12px';
+                    
+                    let delHtml = '';
+                    if (isCustomStatus) {
+                        delHtml = `<span class="material-icons-outlined delete-status-btn" style="color:#f44336; margin-left:auto; font-size:22px; padding:4px; border-radius:50%; transition: background-color 0.2s; pointer-events: auto;" title="刪除自訂狀態">delete</span>`;
+                    }
+                    objLegend.innerHTML = `<span class="material-icons-outlined object-icon-font" style="margin-right:8px;">speaker</span><span style="flex-grow:1; text-align:left;">${status}</span>${delHtml}`;
                     
                     const btnLegend = document.createElement('button');
-                    btnLegend.className = 'status-button active'; btnLegend.setAttribute('data-status', status);
-                    btnLegend.style.cursor = 'pointer'; btnLegend.textContent = `按鈕圖例`;
+                    btnLegend.className = 'status-button active'; 
+                    btnLegend.setAttribute('data-status', status);
+                    btnLegend.style.cursor = 'pointer'; 
+                    btnLegend.textContent = status;
 
                     const colorInput = document.createElement('input');
                     colorInput.type = 'color'; colorInput.style.display = 'none';
@@ -768,61 +1561,120 @@
                     objLegend.addEventListener('click', triggerPicker);
                     btnLegend.addEventListener('click', triggerPicker);
 
-                    // 在拉動選色器時：僅即時預覽 (UI 改變)，不浪費網路資源送 API
+                    if (isCustomStatus) {
+                        const delBtn = objLegend.querySelector('.delete-status-btn');
+                        
+                        delBtn.addEventListener('mouseenter', () => delBtn.style.backgroundColor = 'rgba(244, 67, 54, 0.1)');
+                        delBtn.addEventListener('mouseleave', () => delBtn.style.backgroundColor = 'transparent');
+                        
+                        delBtn.addEventListener('click', (e) => {
+                            e.stopPropagation(); 
+                            showConfirm(`確定要刪除自訂狀態「${status}」嗎？\n(已套用此狀態的器材會自動恢復成預設狀態)`, async () => {
+                                firestoreStatuses = firestoreStatuses.filter(s => s !== status);
+                                
+                                let hasAssignmentsChanged = false;
+                                for (let uid in firestoreStatusAssignments) {
+                                    if (firestoreStatusAssignments[uid] === status) {
+                                        delete firestoreStatusAssignments[uid];
+                                        hasAssignmentsChanged = true;
+                                    }
+                                }
+                                if (hasAssignmentsChanged) {
+                                    const assignRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
+                                    setDoc(assignRef, { map: firestoreStatusAssignments }).catch(e => console.error(e));
+                                }
+
+                                refreshFrontendView();
+                                if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
+
+                                const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
+                                await setDoc(statusesDocRef, { list: firestoreStatuses });
+                            });
+                        });
+                    }
+
                     colorInput.addEventListener('input', (e) => {
                         const newColor = e.target.value;
                         customColors[status] = newColor;
                         applyCustomColors();
                     });
 
-                    // 放開滑鼠 (確定選色) 後：將當前所有的最新配色清單打包，一次性覆寫雲端
-                    colorInput.addEventListener('change', async (e) => {
+                    colorInput.addEventListener('change', (e) => {
                         const newColor = e.target.value;
                         customColors[status] = newColor;
                         applyCustomColors();
-                        showMessage("正在將最新配色庫同步至雲端...", '#ff9800');
-                        await saveAllColors();
-                        showMessage("雲端配色庫已全面更新！", 'green');
                     });
 
-                    row.appendChild(label); row.appendChild(objLegend); row.appendChild(btnLegend); row.appendChild(colorInput);
-                    colorLegendContent.appendChild(row);
+                    mockZoneContent.appendChild(objLegend);
+                    mockStatusContainer.appendChild(btnLegend);
+                    colorLegendContent.appendChild(colorInput);
                 });
+
+                const addStatusContainer = document.createElement('div');
+                addStatusContainer.style.marginTop = '15px';
+                addStatusContainer.style.textAlign = 'center';
+                const addStatusBtn = document.createElement('button');
+                addStatusBtn.className = 'toggle-btn white-bg';
+                addStatusBtn.style.padding = '8px 15px';
+                addStatusBtn.style.fontSize = '16px';
+                addStatusBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 20px;">add</span> 建立新自訂狀態';
+                
+                addStatusBtn.addEventListener('click', () => {
+                    showPrompt('請輸入新的自訂狀態名稱：', '未命名', async (newStatus) => {
+                        if (newStatus && newStatus.trim()) {
+                            const sName = newStatus.trim();
+                            if (statusOptions.includes(sName)) {
+                                showMessage('此狀態已存在於系統中', 'red');
+                                return;
+                            }
+                            
+                            firestoreStatuses.push(sName);
+                            refreshFrontendView();
+                            if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
+
+                            const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
+                            await setDoc(statusesDocRef, { list: firestoreStatuses });
+                            showMessage('已成功新增自訂狀態！', 'green');
+                        }
+                    });
+                });
+
+                addStatusContainer.appendChild(addStatusBtn);
+                colorLegendContent.appendChild(addStatusContainer);
             }
 
             openColorPanelBtn.addEventListener('click', () => {
-                renderColorLegend(); colorSettingsPanel.classList.add('visible'); floatingPanel.classList.remove('expanded'); stopAutoRefresh();
+                originalCustomColors = JSON.parse(JSON.stringify(customColors));
+                renderColorLegend(); 
+                colorSettingsPanel.classList.add('visible'); 
+                floatingPanel.classList.remove('expanded'); 
+                stopAutoRefresh();
             });
 
-            closeColorPanelBtn.addEventListener('click', () => {
-                colorSettingsPanel.classList.remove('visible'); startAutoRefresh();
+            cancelColorsBtn.addEventListener('click', () => {
+                customColors = JSON.parse(JSON.stringify(originalCustomColors));
+                applyCustomColors(); 
+                colorSettingsPanel.classList.remove('visible'); 
+                startAutoRefresh();
             });
-
-            resetColorsBtn.addEventListener('click', async () => {
-                if(confirm("確定要清除所有自訂顏色，恢復預設樣式嗎？(將同步覆寫清除試算表中的配色紀錄)")) {
-                    showMessage("正在清除雲端配色...", '#ff9800');
-                    customColors = {};
-                    applyCustomColors();
-                    renderColorLegend(); 
-                    await saveAllColors(); 
-                    showMessage("配色庫已全部恢復預設。", 'green');
-                }
+            
+            applyColorsBtn.addEventListener('click', async () => {
+                showMessage("正在將最新配色庫同步至雲端...", '#ff9800');
+                await saveAllColors();
+                showMessage("雲端配色庫已全面更新！", 'green');
+                colorSettingsPanel.classList.remove('visible'); 
+                startAutoRefresh();
             });
-
-            // ------------------------------------------------ //
 
             function attachCategoryEventListeners() {
-                const categoryButtons = document.querySelectorAll('.category-button');
+                const categoryButtons = document.querySelectorAll('#category-buttons-container .category-button');
                 categoryButtons.forEach(button => {
                     button.addEventListener('click', () => {
                         button.classList.toggle('active'); 
-                        
-                        // 同步切換眼睛圖標
                         const iconSpan = button.querySelector('.material-icons-outlined');
                         if (iconSpan) {
                             iconSpan.textContent = button.classList.contains('active') ? 'visibility' : 'visibility_off';
                         }
-                        
                         filterObjects(); saveState(); 
                     });
                 });
@@ -831,12 +1683,20 @@
             function areAllZonesExpanded() { return Array.from(zones).every(zone => zone.classList.contains('expanded')); }
 
             function updateToggleButton() {
-                if (areAllZonesExpanded()) { toggleAllBtn.textContent = '全部收合'; toggleAllBtn.classList.remove('white-bg'); } 
-                else { toggleAllBtn.textContent = '全部展開'; toggleAllBtn.classList.add('white-bg'); }
+                if (areAllZonesExpanded()) { 
+                    toggleAllBtn.innerHTML = '<span class="material-icons-outlined">unfold_less</span><span>全部收合</span>'; 
+                    toggleAllBtn.title = '全部收合';
+                    toggleAllBtn.classList.add('active'); 
+                } 
+                else { 
+                    toggleAllBtn.innerHTML = '<span class="material-icons-outlined">unfold_more</span><span>全部展開</span>'; 
+                    toggleAllBtn.title = '全部展開';
+                    toggleAllBtn.classList.remove('active'); 
+                }
             }
             
             function filterObjects() {
-                const selectedCategories = Array.from(document.querySelectorAll('.category-button.active')).map(btn => btn.getAttribute('data-category'));
+                const selectedCategories = Array.from(document.querySelectorAll('#category-buttons-container .category-button.active')).map(btn => btn.getAttribute('data-category'));
                 allObjects.forEach(object => {
                     if (selectedCategories.includes(object.getAttribute('data-category'))) object.classList.remove('hidden');
                     else object.classList.add('hidden');
@@ -872,7 +1732,16 @@
                 }
                 if (colorSettingsPanel.classList.contains('visible') && !colorSettingsPanel.contains(e.target)) {
                     if (!e.target.closest('#open-color-panel-btn')) {
-                        colorSettingsPanel.classList.remove('visible'); startAutoRefresh();
+                        customColors = JSON.parse(JSON.stringify(originalCustomColors));
+                        applyCustomColors();
+                        colorSettingsPanel.classList.remove('visible'); 
+                        startAutoRefresh();
+                    }
+                }
+                if (helpPanel.classList.contains('visible') && !helpPanel.contains(e.target)) {
+                    if (!e.target.closest('#help-btn')) {
+                        helpPanel.classList.remove('visible');
+                        startAutoRefresh();
                     }
                 }
             });
@@ -890,74 +1759,84 @@
                 if (!currentObject) return;
 
                 const rowIndex = currentObject.getAttribute('data-row-index');
+                const uid = currentObject.$data._uid;
                 const allCollectedData = {};
 
                 const activeZoneBtn = document.querySelector('#dynamic-zone-container .status-button.active');
-                if (activeZoneBtn) allCollectedData[sysColZone] = activeZoneBtn.textContent;
+                if (activeZoneBtn) allCollectedData[sysColZone] = activeZoneBtn.getAttribute('data-val');
 
                 const activeStatusBtn = document.querySelector('#dynamic-status-container .status-button.active');
                 if (activeStatusBtn) allCollectedData[sysColStatus] = activeStatusBtn.textContent;
 
-                document.querySelectorAll('.dynamic-input').forEach(input => {
-                    const fieldName = input.getAttribute('data-field');
-                    allCollectedData[fieldName] = input.value;
-                });
+                let gasPayload = {};
+                let updateZoneOverlay = false;
+                let updateStatusOverlay = false;
+                
+                const newZone = allCollectedData[sysColZone];
+                const newStat = allCollectedData[sysColStatus];
 
-                const newDataToUpdate = {};
-                let hasChanges = false;
-                for (let key in allCollectedData) {
-                    if (allCollectedData[key] !== currentObject.$data[key]) {
-                        newDataToUpdate[key] = allCollectedData[key];
-                        hasChanges = true;
+                if (newZone !== currentObject.$data._zone) {
+                    const isTask = newZone && newZone.startsWith('[任務]');
+                    if (isTask) {
+                        firestoreZoneAssignments[uid] = newZone;
+                        updateZoneOverlay = true;
+                    } else {
+                        if (firestoreZoneAssignments[uid]) {
+                            delete firestoreZoneAssignments[uid];
+                            updateZoneOverlay = true;
+                        }
+                        const tObj = globalAllParsedObjects.find(o => o._uid === uid);
+                        if (tObj) tObj._originalZone = newZone;
+                        gasPayload[sysColZone] = newZone; 
                     }
                 }
 
-                if (!hasChanges) {
+                if (newStat !== currentObject.$data._stat) {
+                    const isCustomStatus = firestoreStatuses.includes(newStat);
+                    if (isCustomStatus) {
+                        firestoreStatusAssignments[uid] = newStat;
+                        updateStatusOverlay = true;
+                    } else {
+                        if (firestoreStatusAssignments[uid]) {
+                            delete firestoreStatusAssignments[uid];
+                            updateStatusOverlay = true;
+                        }
+                        const tObj = globalAllParsedObjects.find(o => o._uid === uid);
+                        if (tObj) tObj._originalStat = newStat;
+                        gasPayload[sysColStatus] = newStat; 
+                    }
+                }
+
+                document.querySelectorAll('.dynamic-input').forEach(input => {
+                    const fieldName = input.getAttribute('data-field');
+                    if (input.value !== currentObject.$data[fieldName]) {
+                        gasPayload[fieldName] = input.value;
+                        const tObj = globalAllParsedObjects.find(o => o._uid === uid);
+                        if (tObj) tObj[fieldName] = input.value;
+                    }
+                });
+
+                if (!updateZoneOverlay && !updateStatusOverlay && Object.keys(gasPayload).length === 0) {
                     closeObjectPanel();
                     showMessage("資料未變動，無須更新。", '#ff9800'); 
                     return; 
                 }
 
-                const oldZone = currentObject.getAttribute('data-zone');
-                
-                for(let key in newDataToUpdate) {
-                    currentObject.$data[key] = newDataToUpdate[key];
+                if (updateZoneOverlay) {
+                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
+                    setDoc(ref, { map: firestoreZoneAssignments });
                 }
-                
-                currentObject.$data._zone = currentObject.$data[sysColZone];
-                currentObject.$data._stat = currentObject.$data[sysColStatus];
-                currentObject.setAttribute('data-zone', currentObject.$data._zone);
-                currentObject.setAttribute('data-status', currentObject.$data._stat);
-                
-                const iconValue = currentObject.$data[sysColIcon] ? String(currentObject.$data[sysColIcon]).trim() : '';
-                let iconHtml = '';
-                if (iconValue) {
-                    if (iconValue.includes('<') && iconValue.includes('>')) {
-                        iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                    } else if (iconValue.startsWith('http')) {
-                        iconHtml = `<img src="${iconValue}" class="object-icon" alt="icon" onerror="this.style.display='none'">`;
-                    } else if (iconValue.includes('fa-')) {
-                        iconHtml = `<i class="${iconValue} object-icon-font"></i>`;
-                    } else if (/^[a-zA-Z0-9_]+$/.test(iconValue)) {
-                        iconHtml = `<span class="material-icons object-icon-font">${iconValue}</span>`;
-                    } else {
-                        iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                    }
+                if (updateStatusOverlay) {
+                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
+                    setDoc(ref, { map: firestoreStatusAssignments });
                 }
-                
-                const dispName = currentObject.$data[sysColName] || '未命名';
-                const dispSub = sysColSubName && currentObject.$data[sysColSubName] ? `<span>${currentObject.$data[sysColSubName]}</span>` : '';
-                currentObject.innerHTML = `${iconHtml}<span>${dispName}</span>${dispSub}`;
-
-                updateObjectData(rowIndex, newDataToUpdate);
-                
-                const newZone = currentObject.$data._zone;
-                if (oldZone !== newZone) {
-                    const targetZone = zones.find(zone => zone.querySelector('.zone-name').textContent === newZone);
-                    if (targetZone) targetZone.querySelector('.zone-content').appendChild(currentObject);
+                if (Object.keys(gasPayload).length > 0) {
+                    updateObjectData(rowIndex, gasPayload);
                 }
 
-                closeObjectPanel(); saveState(); updateZoneCounts();
+                closeObjectPanel(); 
+                refreshFrontendView();
+                showMessage("資料已更新", 'green');
             });
 
             async function updateObjectData(rowIndex, dataPayload) {
@@ -974,8 +1853,7 @@
                     let result;
                     try { result = JSON.parse(responseText); } catch(e) { throw new Error("後端回傳異常，可能是權限設定沒有設為「所有人」，或者程式當機。"); }
                     
-                    if (result.success) showMessage("資料已成功寫入試算表！", 'green');
-                    else showMessage("後端寫入失敗：" + result.error, 'red');
+                    if (!result.success) showMessage("後端寫入失敗：" + result.error, 'red');
                     
                 } catch (error) {
                     console.error("更新資料失敗:", error);
@@ -984,28 +1862,26 @@
             }
             
             fetchSpreadsheetData().then(() => startAutoRefresh());
-        });
+        }; 
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            startApp();
+        }
     </script>
     
     <script>
-// 放在 app.html 的 <script> 標籤中或 main.js 內
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js')
-    .then(registration => {
-      registration.onupdatefound = () => {
-        const installingWorker = registration.installing;
-        installingWorker.onstatechange = () => {
-          if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            // 現在這是安全的，因為這段程式碼在主視窗執行
-            if (confirm('有新功能更新，是否立即重新整理？')) {
-              window.location.reload();
-            }
-          }
-        };
-      };
-    })
-    .catch(error => console.error('Service Worker 註冊失敗:', error));
-}
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(r => console.log('SW註冊成功')).catch(e => console.error('SW註冊失敗', e));
+                } else {
+                    console.log('當前環境 (' + window.location.protocol + ') 暫不支援 Service Worker 註冊。');
+                }
+            });
+        }
     </script>
 </body>
 </html>
