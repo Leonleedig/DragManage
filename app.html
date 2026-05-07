@@ -261,7 +261,7 @@
                             <h3 style="color: #3f51b5;">
                                 <span class="material-icons-outlined" style="margin-right:6px; font-size:22px;">assignment</span>
                                 <span class="zone-name" style="border-bottom: 1px dashed #3f51b5;">區塊／任務編組（可點按改名稱）</span>
-                                <span class="zone-count">--(2)項</span>
+                                <span class="zone-count">[2項]</span>
                             </h3>
                             <div style="display: flex; align-items: center;">
                                 <label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label>
@@ -615,7 +615,7 @@
                     const content = zone.querySelector('.zone-content');
                     const visibleObjectsCount = content.querySelectorAll('.object:not(.hidden)').length;
                     const countSpan = zone.querySelector('.zone-count');
-                    if (countSpan) countSpan.textContent = `--(${visibleObjectsCount})項`;
+                    if (countSpan) countSpan.textContent = `[${visibleObjectsCount}項]`;
                 });
             }
 
@@ -963,7 +963,7 @@
                             <h3 style="color: ${isTask ? '#3f51b5' : '#333'};">
                                 ${isTask ? '<span class="material-icons-outlined" style="margin-right:6px; font-size:22px;">assignment</span>' : ''}
                                 ${nameSpanHtml}
-                                <span class="zone-count">--(0)項</span>
+                                <span class="zone-count">[0項]</span>
                             </h3>
                             <div style="display: flex; align-items: center;">
                                 ${deleteBtnHtml}
