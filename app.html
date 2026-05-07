@@ -170,12 +170,12 @@
 
     <!-- 浮動的物件資訊面板 -->
     <div id="object-info-panel" class="object-panel">
-        <div>
-            <h4 id="panel-title"></h4>
+        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+            <h4 id="panel-title" style="flex-shrink: 0; margin-top: 0;"></h4>
             <div id="panel-content" class="panel-body"></div>
         </div>
         
-        <div id="raised-action-bar-container" class="action-bar-container">
+        <div id="raised-action-bar-container" class="action-bar-container" style="flex-shrink: 0;">
             <div class="fine-line-raised"></div>
             <div id="panel-action-bar">
                 <div id="primary-action-slot" class="action-slot primary-slot">
@@ -189,7 +189,7 @@
             </div>
         </div>
 
-        <div class="panel-actions">
+        <div class="panel-actions" style="flex-shrink: 0;">
             <!-- 登載區塊 -->
             <div id="property-area" class="property-area"></div>
         </div>
@@ -197,16 +197,16 @@
 
     <!-- 自訂顏色面板 -->
     <div id="color-settings-panel" class="color-panel">
-        <div>
-            <h4 style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+            <h4 style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 0;">
                 <span class="material-icons-outlined">palette</span> 改色標註
             </h4>
-            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">在此設定的顏色將同步儲存至雲端，所有裝置皆可看見。</p>
+            <p style="font-size: 14px; color: #666; margin-bottom: 15px; flex-shrink: 0;">在此設定的顏色將同步儲存至雲端，所有裝置皆可看見。</p>
             <div id="color-legend-content" class="panel-body" style="display: flex; flex-direction: column; gap: 10px;">
             </div>
         </div>
         
-        <div class="action-bar-container">
+        <div class="action-bar-container" style="flex-shrink: 0;">
             <div class="fine-line-raised"></div>
             <div class="panel-action-bar-common" style="width: 100%; justify-content: center; gap: 20px;">
                 <button id="apply-colors-btn">套用</button>
@@ -217,14 +217,14 @@
 
     <!-- 🌟 全新重構：高度擬真的系統說明教學面板 -->
     <div id="help-panel" class="color-panel">
-        <div>
-            <h4 style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+            <h4 style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 0;">
                 <span class="material-icons-outlined">help_outline</span> 使用說明
             </h4>
             <div class="panel-body" style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 15px; background: transparent;">
                 
                 <!-- 區塊 1: 擬真導航面板 -->
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff;">
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff; flex-shrink: 0;">
                     <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                         <!-- 模擬右下角導航面板 -->
                         <div style="flex: 0 0 auto; width: 140px; background-color: #3f51b5; color: white; border-radius: 8px; padding: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: none; user-select: none;">
@@ -262,7 +262,7 @@
                 </div>
 
                 <!-- 區塊 2: 擬真區塊與卡片操作 -->
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff;">
+                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff; flex-shrink: 0;">
                     <h5 style="margin-top: 0; margin-bottom: 12px; color: #3f51b5; font-size: 16px;">主畫面，區塊與器材卡片</h5>
                     
                     <!-- 虛擬的完整 Zone 與包含卡片 -->
@@ -301,7 +301,7 @@
             </div>
         </div>
         
-        <div class="action-bar-container">
+        <div class="action-bar-container" style="flex-shrink: 0;">
             <div class="fine-line-raised"></div>
             <div class="panel-action-bar-common" style="width: 100%; justify-content: center; gap: 20px;">
                 <button id="close-help-btn" style="background-color: #6c757d; color: white; border: none; padding: 10px 32px; font-size: 16px; border-radius: 6px; cursor: pointer; letter-spacing: 2px;">關閉</button>
