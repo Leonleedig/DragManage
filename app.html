@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="dynamic-page-title">影音器材列表</title>
-    <!-- 同時引入實心與線條版 Material Icons -->
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -168,7 +167,6 @@
         </div>
     </div>
 
-    <!-- 浮動的物件資訊面板 -->
     <div id="object-info-panel" class="object-panel">
         <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
             <h4 id="panel-title" style="flex-shrink: 0; margin-top: 0;"></h4>
@@ -190,12 +188,10 @@
         </div>
 
         <div class="panel-actions" style="flex-shrink: 0;">
-            <!-- 登載區塊 -->
             <div id="property-area" class="property-area"></div>
         </div>
     </div>
 
-    <!-- 自訂顏色面板 -->
     <div id="color-settings-panel" class="color-panel">
         <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
             <h4 style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 0;">
@@ -215,7 +211,6 @@
         </div>
     </div>
 
-    <!-- 🌟 全新重構：高度擬真的系統說明教學面板 -->
     <div id="help-panel" class="color-panel">
         <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
             <h4 style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 0;">
@@ -223,10 +218,8 @@
             </h4>
             <div class="panel-body" style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 15px; background: transparent;">
                 
-                <!-- 區塊 1: 擬真導航面板 -->
                 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff; flex-shrink: 0;">
                     <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-                        <!-- 模擬右下角導航面板 -->
                         <div style="flex: 0 0 auto; width: 140px; background-color: #3f51b5; color: white; border-radius: 8px; padding: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: none; user-select: none;">
                             <div style="text-align: center; margin-bottom: 5px; font-size: 13px; opacity: 0.9;">收合 ▼</div>
                             <div class="tools-grid" style="padding: 0 0 10px 0; gap: 8px;">
@@ -248,7 +241,6 @@
                             </div>
                         </div>
                         
-                        <!-- 導航列功能圖說 -->
                         <div style="flex: 1; min-width: 200px; font-size: 14px; color: #444; line-height: 1.8;">
                             <h5 style="margin-top: 0; margin-bottom: 10px; color: #3f51b5; font-size: 16px;">導航區，就像遙控器</h5>
                             <ul style="margin: 0; padding-left: 20px;">
@@ -261,11 +253,9 @@
                     </div>
                 </div>
 
-                <!-- 區塊 2: 擬真區塊與卡片操作 -->
                 <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff; flex-shrink: 0;">
                     <h5 style="margin-top: 0; margin-bottom: 12px; color: #3f51b5; font-size: 16px;">主畫面，區塊與器材卡片</h5>
                     
-                    <!-- 虛擬的完整 Zone 與包含卡片 -->
                     <div class="zone task-zone expanded" style="margin-bottom: 15px; box-shadow: 0 2px 8px rgba(63,81,181,0.1); pointer-events: none; border: 2px dashed #3f51b5;">
                         <div class="zone-header highlighted" style="cursor: default; background-color: #fff9c4;">
                             <h3 style="color: #3f51b5;">
@@ -309,7 +299,9 @@
         </div>
     </div>
 
-    <!-- 自訂確認對話框 -->
+    <!-- 🌟 補回遺失的系統提示區塊容器 -->
+    <div id="message-box"></div>
+
     <div id="custom-confirm-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2999;"></div>
     <div id="custom-confirm-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 3000; text-align: center; min-width: 280px;">
         <h4 id="confirm-msg" style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: normal; line-height: 1.5;">確定要執行嗎？</h4>
@@ -319,7 +311,6 @@
         </div>
     </div>
 
-    <!-- 自訂輸入對話框 -->
     <div id="custom-prompt-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2999;"></div>
     <div id="custom-prompt-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 3000; text-align: center; min-width: 300px;">
         <h4 id="prompt-msg" style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 18px; font-weight: normal; line-height: 1.5;">請輸入名稱：</h4>
@@ -740,8 +731,9 @@
                 applyHighlightsFromFirestore();
             }
 
-            document.getElementById('add-task-btn').addEventListener('click', async () => {
-                if (!currentUser) return showMessage("正在連線至同步資料庫，請稍候...", "red");
+            // 🌟 將「新增任務」的等待鎖解除，實作樂觀渲染 (Fire and Forget)
+            document.getElementById('add-task-btn').addEventListener('click', () => {
+                if (!currentUser) return showMessage("尚未連線至同步資料庫，請稍候...", "red");
 
                 let baseName = "未命名";
                 let finalName = `[任務]${baseName}`;
@@ -774,7 +766,7 @@
                 }, 50);
 
                 const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                await setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error("任務建立失敗", e));
+                setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error("任務建立失敗", e));
             });
 
             screenshotBtn.addEventListener('click', async () => {
@@ -913,10 +905,6 @@
                         const zone = objData[sysColZone] || '未分類區域';
                         const stat = objData[sysColStatus] || '正常';
                         
-                        globalDynamicCategories.add(cat);
-                        globalDynamicZones.add(zone);
-                        globalDynamicStatusOptions.add(stat);
-                        
                         let rawUid = objData[sysColId] ? String(objData[sysColId]).trim() : '';
                         if (!rawUid || generatedUids.has(rawUid)) {
                             let fallbackName = objData[sysColName] ? String(objData[sysColName]).trim() : 'ITEM';
@@ -1001,7 +989,7 @@
                             }
                         });
 
-                        nameSpan.addEventListener('blur', async () => {
+                        nameSpan.addEventListener('blur', () => {
                             let newText = nameSpan.textContent.trim();
                             if (newText === '') {
                                 nameSpan.textContent = displayZoneName; 
@@ -1022,7 +1010,7 @@
                                     refreshFrontendView(); 
                                     
                                     const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                                    await setDoc(tasksDocRef, { list: firestoreTasks });
+                                    setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error(e));
                                 }
 
                                 const hIdx = firestoreHighlights.indexOf(oldVal);
@@ -1060,7 +1048,7 @@
                                 delBtn.addEventListener('click', (e) => {
                                     e.stopPropagation(); 
                                     
-                                    showConfirm(`確定要解散任務「${nameSpan.textContent.trim()}」嗎？\n(任務內的器材將會自動歸位)`, async () => {
+                                    showConfirm(`確定要解散任務「${nameSpan.textContent.trim()}」嗎？\n(任務內的器材將會自動歸位)`, () => {
                                         firestoreTasks = firestoreTasks.filter(t => t !== oldVal);
                                         globalDynamicZones.delete(oldVal);
                                         
@@ -1075,7 +1063,7 @@
                                         refreshFrontendView(); 
                                         
                                         const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                                        await setDoc(tasksDocRef, { list: firestoreTasks });
+                                        setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error(e));
                                         
                                         if (firestoreHighlights.includes(oldVal)) {
                                             firestoreHighlights = firestoreHighlights.filter(t => t !== oldVal);
@@ -1085,7 +1073,7 @@
                                         
                                         if (hasAssignmentsChanged) {
                                             const assignRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                            await setDoc(assignRef, { map: firestoreZoneAssignments }).catch(e => console.error(e));
+                                            setDoc(assignRef, { map: firestoreZoneAssignments }).catch(e => console.error(e));
                                         }
                                         
                                         showMessage("任務已解散，器材皆已歸位", "green");
@@ -1172,7 +1160,7 @@
                     
                     const toggleInput = header.querySelector('.zone-highlight-toggle');
                     if (toggleInput) {
-                        toggleInput.addEventListener('change', async (e) => {
+                        toggleInput.addEventListener('change', (e) => {
                             const zName = zone.querySelector('.zone-name').getAttribute('data-val');
                             if (e.target.checked) {
                                 header.classList.add('highlighted');
@@ -1186,7 +1174,7 @@
                             
                             if (currentUser) {
                                 const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
-                                await setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(err => console.error("標記儲存失敗", err));
+                                setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(err => console.error("標記儲存失敗", err));
                             }
                         });
                     }
@@ -1208,7 +1196,7 @@
 
                         dropArea.addEventListener('dragleave', (e) => { dropArea.classList.remove('drag-over'); });
 
-                        dropArea.addEventListener('drop', async (e) => {
+                        dropArea.addEventListener('drop', (e) => {
                             e.preventDefault(); dropArea.classList.remove('drag-over');
                             if (draggedItem) {
                                 const objData = draggedItem.$data;
@@ -1224,7 +1212,7 @@
                                     firestoreZoneAssignments[uid] = newZone;
                                     refreshFrontendView(); 
                                     const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                    await setDoc(ref, { map: firestoreZoneAssignments });
+                                    setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
                                 } else {
                                     let changedOverlay = false;
                                     if (firestoreZoneAssignments[uid]) {
@@ -1238,7 +1226,7 @@
 
                                     if (changedOverlay) {
                                         const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                        await setDoc(ref, { map: firestoreZoneAssignments });
+                                        setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
                                     }
 
                                     updateObjectData(rowIndex, { [sysColZone]: newZone });
@@ -1436,7 +1424,8 @@
                 });
             }
 
-            async function saveAllColors() {
+            // 🌟 移除儲存顏色時的等待鎖 (Fire and forget)
+            function saveAllColors() {
                 if (!currentUser) return showMessage("尚未連線至同步資料庫", "red");
                 const payloadData = {};
                 statusOptions.forEach(status => {
@@ -1444,13 +1433,11 @@
                 });
                 payloadData['ZONE_HIGHLIGHT'] = customColors['ZONE_HIGHLIGHT'] || '';
 
-                try {
-                    const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
-                    await setDoc(colorsDocRef, payloadData);
-                } catch(e) {
+                const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
+                setDoc(colorsDocRef, payloadData).catch(e => {
                     console.error("更新配色庫失敗", e);
                     showMessage("顏色存檔時發生網路錯誤", 'red');
-                }
+                });
             }
 
             function renderColorLegend() {
@@ -1569,7 +1556,7 @@
                         
                         delBtn.addEventListener('click', (e) => {
                             e.stopPropagation(); 
-                            showConfirm(`確定要刪除自訂狀態「${status}」嗎？\n(已套用此狀態的器材會自動恢復成預設狀態)`, async () => {
+                            showConfirm(`確定要刪除自訂狀態「${status}」嗎？\n(已套用此狀態的器材會自動恢復成預設狀態)`, () => {
                                 firestoreStatuses = firestoreStatuses.filter(s => s !== status);
                                 
                                 let hasAssignmentsChanged = false;
@@ -1588,7 +1575,7 @@
                                 if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
 
                                 const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
-                                await setDoc(statusesDocRef, { list: firestoreStatuses });
+                                setDoc(statusesDocRef, { list: firestoreStatuses }).catch(e => console.error(e));
                             });
                         });
                     }
@@ -1620,7 +1607,7 @@
                 addStatusBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 20px;">add</span> 建立新自訂狀態';
                 
                 addStatusBtn.addEventListener('click', () => {
-                    showPrompt('請輸入新的自訂狀態名稱：', '未命名', async (newStatus) => {
+                    showPrompt('請輸入新的自訂狀態名稱：', '未命名', (newStatus) => {
                         if (newStatus && newStatus.trim()) {
                             const sName = newStatus.trim();
                             if (statusOptions.includes(sName)) {
@@ -1633,7 +1620,7 @@
                             if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
 
                             const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
-                            await setDoc(statusesDocRef, { list: firestoreStatuses });
+                            setDoc(statusesDocRef, { list: firestoreStatuses }).catch(e => console.error(e));
                             showMessage('已成功新增自訂狀態！', 'green');
                         }
                     });
@@ -1658,9 +1645,10 @@
                 startAutoRefresh();
             });
             
-            applyColorsBtn.addEventListener('click', async () => {
+            // 🌟 將「套用」按鈕的等待鎖解除，實作樂觀渲染 (Fire and Forget)
+            applyColorsBtn.addEventListener('click', () => {
                 showMessage("正在將最新配色庫同步至雲端...", '#ff9800');
-                await saveAllColors();
+                saveAllColors(); // 背景執行不阻塞
                 showMessage("雲端配色庫已全面更新！", 'green');
                 colorSettingsPanel.classList.remove('visible'); 
                 startAutoRefresh();
@@ -1822,13 +1810,14 @@
                     return; 
                 }
 
+                // 🌟 同樣將這些儲存動作改為非阻塞的樂觀寫入
                 if (updateZoneOverlay) {
                     const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                    setDoc(ref, { map: firestoreZoneAssignments });
+                    setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
                 }
                 if (updateStatusOverlay) {
                     const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
-                    setDoc(ref, { map: firestoreStatusAssignments });
+                    setDoc(ref, { map: firestoreStatusAssignments }).catch(e => console.error(e));
                 }
                 if (Object.keys(gasPayload).length > 0) {
                     updateObjectData(rowIndex, gasPayload);
