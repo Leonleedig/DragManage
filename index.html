@@ -1,1003 +1,998 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="dynamic-page-title">影音器材列表</title>
-    <!-- 同時引入實心與線條版 Material Icons -->
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" type="image/x-icon" href="icon-r.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-r.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
-    <link rel="manifest" href="manifest.json">
-    
-    <style>
-        /* 基本樣式 */
-        body { font-family: Arial, sans-serif; background-color: #f4f7f9; margin: 0; padding: 20px; }
-        .zone { background-color: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 20px; overflow: hidden; transition: all 0.3s ease; }
-        .zone-header { padding: 5px 20px; background-color: #eef2f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .zone-header h3 { margin: 0; color: #333; flex-grow: 1; display: flex; align-items: baseline;}
-        .zone-count { font-size: 0.85em; color: #666; font-weight: normal; margin-left: 5px; }
-        .zone-toggle-icon { font-size: 16px; margin-left: 10px; transition: transform 0.3s ease; }
-        .zone.expanded .zone-toggle-icon { transform: rotate(180deg); }
-        .zone-content { padding: 5px; border-top: 1px solid #ddd; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out, padding 0.4s ease-out; }
-        .zone.expanded .zone-content { max-height: 20000px; padding: 10px; }
-
-        /* 物件樣式 */
-        .object { position: relative; background-color: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; text-align: center; font-size: 20px; cursor: grab; transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.4s ease; user-select: none; -webkit-user-select: none; touch-action: manipulation; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; }
-        .object[data-panel-open="false"] { cursor: pointer; }
-        .object[data-panel-open="true"] { cursor: default; }
-        .object.hidden { display: none; }
-        .object.dragging { opacity: 0.5; transform: scale(0.95); }
-        .object span { pointer-events: none; }
-        .object-icon { width: 24px; height: 24px; object-fit: contain; pointer-events: none; }
-        .object-icon-font { font-size: 22px; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-
-        /* 動態CSS預設區 */
-        .object[data-status*="損壞"] { background-color: #f44336; color: white; }
-        .object[data-status="儲備"], .object[data-status="暫代"] { background-color: #ff9900; color: white; }
-
-        /* 面板樣式 */
-        .object-panel, .color-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 95vh; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); padding: 20px; z-index: 1001; display: none; flex-direction: column; justify-content: space-between; }
-        .object-panel h4, .color-panel h4 { margin-top: 0; }
-        .object-panel.visible, .color-panel.visible { display: flex; }
-        .object-panel .panel-body, .color-panel .panel-body { flex-grow: 1; overflow-y: auto; cursor: copy; padding-bottom: 5px; line-height: 1.5; }
-        .color-panel .panel-body { cursor: default; }
-
-        /* 動作條與細線 */
-        .action-bar-container { position: relative; height: 40px; display: flex; justify-content: center; align-items: center; margin-bottom: 5px; margin-top: 5px; width: 100%; }
-        .fine-line-raised { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background-color: #e0e0e0; z-index: 10; }
-        #panel-action-bar, .panel-action-bar-common { display: flex; align-items: center; justify-content: center; position: relative; z-index: 20; gap: 20px; padding: 0 10px; }
-        .action-slot { position: relative; height: 40px; }
-        .primary-slot, .cancel-slot { width: 100px; }
-        .action-slot button { position: absolute; top: 0; left: 0; width: 100%; border: none; cursor: pointer; transition: background-color 0.2s; font-size: 16px; color: white; border-radius: 4px; }
-        
-        #change-btn, #confirm-btn, #cancel-btn-inline, #reset-colors-btn { background-color: #3f51b5; padding: 8px 16px; display: block; }
-        #change-btn:hover, #confirm-btn:hover { background-color: #5c6bc0; }
-        #close-btn-inline, #close-color-panel-btn { width: 40px; height: 40px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background-color: #f44336; left: auto; right: 0; }
-        #cancel-btn-inline { background-color: #6c757d; display: block; }
-        #cancel-btn-inline:hover { background-color: #5a6268; }
-
-        /* 動態屬性區塊樣式 */
-        .property-area { background-color: transparent; border: none; border-radius: 4px; margin-bottom: 10%; padding: 0; width: 100%; display: none; box-sizing: border-box; text-align: left; max-height: 40vh; overflow-y: auto; }
-        .property-area.visible { display: block; }
-        .property-area > div { display: flex; align-items: center; margin-bottom: 10px; }
-        .property-area .label { white-space: nowrap; margin-right: 10px; font-weight: bold; min-width: 60px; }
-        .property-area .input-field { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; }
-        
-        .status-buttons-container { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
-        .status-button { background-color: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .status-button.active { background-color: #3f51b5; color: white; }
-
-        /* 導航面板樣式 */
-        .floating-panel { position: fixed; bottom: 20px; right: 20px; background-color: #3f51b5; color: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; align-items: center; transition: all 0.3s ease; z-index: 1000; }
-        .panel-toggle-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 10px 15px; width: 100%; transition: background-color 0.2s; }
-        .floating-panel.expanded .panel-toggle-btn { display: none; }
-        .panel-content { display: flex; flex-direction: column; gap: 5px; max-height: 0; overflow: hidden; padding: 0; transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; width: 100%; }
-        .floating-panel.expanded .panel-content { max-height: 500px; padding: 10px; overflow-y: auto;}
-        .panel-content .collapse-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0 10px; margin-bottom: 5px; }
-        
-        /* 加入 flexbox 讓按鈕內的圖標能與文字漂亮對齊 */
-        .toggle-btn { display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #3f51b5; color: white; border: none; padding: 10px 15px; cursor: pointer; transition: background-color 0.2s, color 0.2s; width: 100%; font-size: 20px; }
-        .toggle-btn:hover { background-color: #7986cb; }
-        .toggle-btn.white-bg { background-color: #fff; color: #3f51b5; border: 1px solid #3f51b5; margin-bottom: 5px;}
-        .toggle-btn.white-bg:hover { background-color: #e0e0e0; }
-
-        .category-buttons { display: flex; flex-direction: column; width: 100%; }
-        /* 加入 flexbox 對齊分類按鈕圖標 */
-        .category-button { display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #3f51b5; color: white; border: 1px solid #3f51b5; padding: 8px 12px; cursor: pointer; transition: background-color 0.2s, color 0.2s; text-align: center; font-size: 20px; }
-        .category-button.active { background-color: #fff; color: #3f51b5; }
-        .category-button:hover { background-color: #3f51b5; color: #fff; }
-        .zone-header.drag-over, .zone-content.drag-over { background-color: #e0e0e0; border: 2px solid #999; }
-        
-        #message-box { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #4CAF50; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 2000; display: none; transition: opacity 0.5s ease-in-out; }
-        .refresh-button { display: flex; position: fixed; top: 20px; right: 20px; background-color: #fff; color: #3f51b5; border: 2px solid #3f51b5; border-radius: 50%; width: 45px; height: 45px; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: transform 0.2s ease; z-index: 1000; }
-        .refresh-button.loading { animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
-
-    <style id="dynamic-spreadsheet-styles"></style>
-    <!-- 用於從前端暫存注入的自訂顏色樣式 -->
-    <style id="user-custom-colors"></style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>影音設備清冊 - 極簡管理列表</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .material-icons, .material-icons-outlined {
+      font-size: 20px;
+      line-height: 1;
+      vertical-align: middle;
+    }
+  </style>
 </head>
-<body>
-    
-    <div id="zones-container"></div>
-    
-    <button class="refresh-button" id="refresh-button" style="display: none;">
-        <span class="material-icons">refresh</span>
-    </button>
-    
-    <div class="floating-panel">
-        <button class="panel-toggle-btn">檢視 ▲</button>
-        <div class="panel-content">
-            <button class="collapse-btn">收合 ▼</button>
-            <button class="toggle-btn white-bg" id="open-color-panel-btn">
-                <span class="material-icons-outlined">palette</span> 改色標註
-            </button>
-            <button class="toggle-btn" id="toggle-all-btn" style="margin-bottom: 5px;">全部展開</button>
-            <div class="category-buttons" id="category-buttons-container"></div>
-        </div>
-    </div>
+<body class="min-h-screen antialiased selection:bg-slate-800 selection:text-white pb-16">
 
-    <!-- 浮動的物件資訊面板 -->
-    <div id="object-info-panel" class="object-panel">
+  <!-- 頂部控制列 -->
+  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
+      
+      <!-- 位置組 -->
+      <div class="inline-flex items-stretch rounded-lg shadow-2xs">
+        <button type="button" onclick="UIController.setGroupBy('location')" id="groupByLocationBtn"
+          class="px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-800 bg-slate-800 text-white transition-colors cursor-pointer select-none whitespace-nowrap">
+          依位置
+        </button>
+        <select id="locationFilterSelect" onchange="UIController.onFilterChange('location', this.value)"
+          class="px-2.5 py-1.5 bg-slate-100/90 hover:bg-slate-200/70 text-xs sm:text-sm font-medium text-slate-700 rounded-r-lg border border-slate-300/90 focus:outline-none focus:border-slate-500 transition-colors cursor-pointer">
+          <option value="ALL">全部</option>
+        </select>
+      </div>
+
+      <!-- 分類組 -->
+      <div class="inline-flex items-stretch rounded-lg shadow-2xs">
+        <button type="button" onclick="UIController.setGroupBy('category')" id="groupByCategoryBtn"
+          class="px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-300/90 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer select-none whitespace-nowrap">
+          依分類
+        </button>
+        <select id="categoryFilterSelect" onchange="UIController.onFilterChange('category', this.value)"
+          class="px-2.5 py-1.5 bg-slate-100/90 hover:bg-slate-200/70 text-xs sm:text-sm font-medium text-slate-700 rounded-r-lg border border-slate-300/90 focus:outline-none focus:border-slate-500 transition-colors cursor-pointer">
+          <option value="ALL">全部</option>
+        </select>
+      </div>
+
+      <!-- 狀態組 -->
+      <div class="inline-flex items-stretch rounded-lg shadow-2xs">
+        <button type="button" onclick="UIController.setGroupBy('status')" id="groupByStatusBtn"
+          class="px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-300/90 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer select-none whitespace-nowrap">
+          依狀態
+        </button>
+        <select id="statusFilterSelect" onchange="UIController.onFilterChange('status', this.value)"
+          class="px-2.5 py-1.5 bg-slate-100/90 hover:bg-slate-200/70 text-xs sm:text-sm font-medium text-slate-700 rounded-r-lg border border-slate-300/90 focus:outline-none focus:border-slate-500 transition-colors cursor-pointer">
+          <option value="ALL">全部</option>
+        </select>
+      </div>
+
+      <!-- 連線狀態 -->
+      <button type="button" id="syncStatusBtn" onclick="DataService.init(true)" title="點擊重新同步試算表資料"
+        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-500 transition-colors cursor-pointer select-none">
+        <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="syncLabel">連線中</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 pt-5">
+
+    <!-- 錯誤提示列 -->
+    <div id="syncErrorBanner" class="hidden mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div class="flex items-start gap-2">
+        <span class="material-icons text-rose-500 shrink-0 mt-0.5" style="font-size: 18px;">error_outline</span>
         <div>
-            <h4 id="panel-title"></h4>
-            <div id="panel-content" class="panel-body"></div>
+          <p class="font-semibold">無法讀取試算表（目前顯示內建範例資料）</p>
+          <p id="syncErrorDetail" class="text-rose-700/90 mt-0.5 text-xs whitespace-pre-line"></p>
         </div>
-        
-        <div id="raised-action-bar-container" class="action-bar-container">
-            <div class="fine-line-raised"></div>
-            <div id="panel-action-bar">
-                <div id="primary-action-slot" class="action-slot primary-slot">
-                    <button id="change-btn" class="action-btn">更改</button>
-                    <button id="confirm-btn" class="action-btn" style="display: none;">確定</button>
-                </div>
-                <div id="cancel-action-slot" class="action-slot cancel-slot">
-                    <button id="close-btn-inline" class="action-btn">&times;</button>
-                    <button id="cancel-btn-inline" class="action-btn" style="display: none;">取消</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel-actions">
-            <!-- 登載區塊 -->
-            <div id="property-area" class="property-area"></div>
-        </div>
+      </div>
+      <button type="button" onclick="DataService.hideErrorBanner()"
+        class="px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-100 text-xs cursor-pointer shrink-0 self-end sm:self-center">
+        關閉
+      </button>
     </div>
-
-    <!-- 自訂顏色面板 -->
-    <div id="color-settings-panel" class="color-panel">
-        <div>
-            <h4 style="display: flex; align-items: center; gap: 6px;">
-                <span class="material-icons-outlined">palette</span> 改色標註
-            </h4>
-            <p style="font-size: 14px; color: #666; margin-bottom: 15px;">在此設定的顏色將同步儲存至試算表的「配色庫」工作表，所有裝置皆可看見。</p>
-            <div id="color-legend-content" class="panel-body" style="display: flex; flex-direction: column; gap: 10px;">
-                <!-- 圖例將由 JS 動態生成 -->
-            </div>
-        </div>
-        
-        <div class="action-bar-container">
-            <div class="fine-line-raised"></div>
-            <div class="panel-action-bar-common">
-                <div class="action-slot primary-slot" style="width: auto;">
-                    <button id="reset-colors-btn" class="action-btn" style="background-color: #ff9800; padding: 8px 16px; position: static;">清除所有自訂顏色</button>
-                </div>
-                <div class="action-slot cancel-slot" style="width: 40px;">
-                    <button id="close-color-panel-btn" class="action-btn">&times;</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="message-box"></div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const API_KEY = 'AIzaSyDrKPFmjLr2-QmF9vf7nFqkC75z0M2I_B8';
-            const SPREADSHEET_ID = '1UGZQa5FQY-3CaTtC7-8LfJz70sDX1UbkbVDAGciEZjQ';
-            
-            // 已記住的最新 API 網址
-            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwfEii0Aj065c4wotKSjgZ6k4DVOXszARRIbL9JDDep-JyoIng5m7zSmFGa1XGssq4P/exec'; 
-            
-            const zonesContainer = document.getElementById('zones-container');
-            const categoryButtonsContainer = document.getElementById('category-buttons-container');
-            const toggleAllBtn = document.getElementById('toggle-all-btn');
-            const floatingPanel = document.querySelector('.floating-panel');
-            const panelToggleBtn = document.querySelector('.panel-toggle-btn');
-            const collapseBtn = document.querySelector('.panel-content .collapse-btn');
-            
-            const objectInfoPanel = document.getElementById('object-info-panel');
-            const objectPanelTitle = document.getElementById('panel-title');
-            const objectPanelContent = document.getElementById('panel-content');
-            
-            const changeBtn = document.getElementById('change-btn');
-            const closeBtnInline = document.getElementById('close-btn-inline');
-            const confirmBtn = document.getElementById('confirm-btn');
-            const cancelBtnInline = document.getElementById('cancel-btn-inline'); 
-            
-            const messageBox = document.getElementById('message-box');
-            const refreshButton = document.getElementById('refresh-button');
-            const propertyArea = document.getElementById('property-area');
-
-            // 自訂顏色面板元素
-            const openColorPanelBtn = document.getElementById('open-color-panel-btn');
-            const colorSettingsPanel = document.getElementById('color-settings-panel');
-            const closeColorPanelBtn = document.getElementById('close-color-panel-btn');
-            const resetColorsBtn = document.getElementById('reset-colors-btn');
-            const colorLegendContent = document.getElementById('color-legend-content');
-
-            let draggedItem = null;
-            let zones = []; 
-            let allObjects = [];
-            let statusOptions = [];
-            let autoRefreshInterval = null;
-
-            let systemConfig = {};
-            let dataHeaders = [];
-
-            // ⚠️ 關鍵變動：不再讀取 localStorage，改為純記憶體變數，稍後由試算表載入覆蓋
-            let customColors = {};
-
-            // 提取為全域變數
-            let sysColId, sysColName, sysColSubName, sysColCategory, sysColZone, sysColStatus, sysColIcon;
-
-            const LOCAL_STORAGE_ZONE_KEY = 'zoneState';
-            const LOCAL_STORAGE_CATEGORY_KEY = 'categoryState';
-            const LOCAL_STORAGE_PANEL_KEY = 'panelState';
-            
-            // 計算顏色的亮度以決定字體該用黑或白
-            function getContrastYIQ(hexcolor){
-                if (!hexcolor) return 'black';
-                hexcolor = hexcolor.replace("#", "");
-                if (hexcolor.length === 3) hexcolor = hexcolor.split('').map(c => c + c).join('');
-                var r = parseInt(hexcolor.substr(0,2),16);
-                var g = parseInt(hexcolor.substr(2,2),16);
-                var b = parseInt(hexcolor.substr(4,2),16);
-                var yiq = ((r*299)+(g*587)+(b*114))/1000;
-                return (yiq >= 128) ? 'black' : 'white';
-            }
-
-            // 套用自訂顏色到全局 CSS
-            function applyCustomColors() {
-                let cssString = '';
-                for (const [status, color] of Object.entries(customColors)) {
-                    if (color && color.trim() !== '') {
-                        const textColor = getContrastYIQ(color);
-                        // 覆寫卡片物件與狀態按鈕的顏色
-                        cssString += `
-                            .object[data-status="${status}"] { background-color: ${color} !important; color: ${textColor} !important; border-color: ${color} !important; }
-                            .object[data-status="${status}"] span { color: ${textColor} !important; }
-                            .status-button[data-status="${status}"].active { background-color: ${color} !important; color: ${textColor} !important; border-color: ${color} !important; }
-                        `;
-                    }
-                }
-                document.getElementById('user-custom-colors').textContent = cssString;
-            }
-
-            function updateZoneCounts() {
-                zones.forEach(zone => {
-                    const content = zone.querySelector('.zone-content');
-                    const visibleObjectsCount = content.querySelectorAll('.object:not(.hidden)').length;
-                    const countSpan = zone.querySelector('.zone-count');
-                    if (countSpan) countSpan.textContent = `--(${visibleObjectsCount})項`;
-                });
-            }
-
-            function startAutoRefresh() {
-                if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-                autoRefreshInterval = setInterval(fetchSpreadsheetData, 5000);
-            }
-
-            function stopAutoRefresh() {
-                if (autoRefreshInterval) {
-                    clearInterval(autoRefreshInterval);
-                    autoRefreshInterval = null;
-                }
-            }
-
-            function saveState() {
-                const expandedZones = Array.from(document.querySelectorAll('.zone.expanded')).map(zone => zone.id);
-                localStorage.setItem(LOCAL_STORAGE_ZONE_KEY, JSON.stringify(expandedZones));
-
-                const activeCategories = Array.from(document.querySelectorAll('.category-button.active')).map(btn => btn.getAttribute('data-category'));
-                localStorage.setItem(LOCAL_STORAGE_CATEGORY_KEY, JSON.stringify(activeCategories));
-                
-                localStorage.setItem(LOCAL_STORAGE_PANEL_KEY, JSON.stringify({
-                    expanded: floatingPanel.classList.contains('expanded'),
-                    openPanelObjectId: document.querySelector('.object[data-panel-open="true"]')?.getAttribute('data-id') || null,
-                    propertyAreaVisible: propertyArea.classList.contains('visible')
-                }));
-            }
-
-            function loadState() {
-                const savedZones = localStorage.getItem(LOCAL_STORAGE_ZONE_KEY);
-                if (savedZones) {
-                    JSON.parse(savedZones).forEach(zoneId => {
-                        const zone = document.getElementById(zoneId);
-                        if (zone) zone.classList.add('expanded');
-                    });
-                }
-                
-                const savedCategories = localStorage.getItem(LOCAL_STORAGE_CATEGORY_KEY);
-                if (savedCategories) {
-                    const activeCategories = JSON.parse(savedCategories);
-                    document.querySelectorAll('.category-button').forEach(btn => {
-                        if (activeCategories.includes(btn.getAttribute('data-category'))) {
-                            btn.classList.add('active');
-                        } else {
-                            btn.classList.remove('active');
-                        }
-                        // 同步更新連動的 icon (眼睛)
-                        const iconSpan = btn.querySelector('.material-icons-outlined');
-                        if (iconSpan) {
-                            iconSpan.textContent = btn.classList.contains('active') ? 'visibility' : 'visibility_off';
-                        }
-                    });
-                }
-                filterObjects();
-
-                const savedPanelState = localStorage.getItem(LOCAL_STORAGE_PANEL_KEY);
-                if (savedPanelState) {
-                    const state = JSON.parse(savedPanelState);
-                    if (state.expanded) floatingPanel.classList.add('expanded');
-                    else floatingPanel.classList.remove('expanded');
-                    
-                    if (state.openPanelObjectId) {
-                        setTimeout(() => {
-                            const object = document.querySelector(`.object[data-id="${state.openPanelObjectId}"]`);
-                            if (object) {
-                                object.click();
-                                if (state.propertyAreaVisible) {
-                                    changeBtn.style.display = 'none'; closeBtnInline.style.display = 'none';
-                                    confirmBtn.style.display = 'block'; cancelBtnInline.style.display = 'block'; 
-                                    propertyArea.classList.add('visible');
-                                }
-                            }
-                        }, 100);
-                    }
-                }
-            }
-
-            async function fetchSpreadsheetData() {
-                refreshButton.classList.add('loading'); 
-                
-                try {
-                    const configUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!A:Z?key=${API_KEY}`;
-                    const objectsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/總表!A:Z?key=${API_KEY}`;
-                    // ⚠️ 關鍵變動：新增讀取「配色庫」API (使用 catch 避免因為還沒建立表單而導致錯誤)
-                    const colorsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/配色庫!A2:C?key=${API_KEY}`;
-                    
-                    const [configRes, objectsRes, colorsRes] = await Promise.all([ 
-                        fetch(configUrl), 
-                        fetch(objectsUrl),
-                        fetch(colorsUrl).then(res => res.ok ? res : null).catch(() => null)
-                    ]);
-                    
-                    const configData = await configRes.json();
-                    const objectsData = await objectsRes.json();
-                    
-                    // 解析雲端配色庫
-                    if (colorsRes) {
-                        const colorsData = await colorsRes.json();
-                        customColors = {}; // 清空並用遠端資料覆蓋
-                        if (colorsData.values) {
-                            colorsData.values.forEach(row => {
-                                if (row[0] && row[2]) { // [0] 是物件中文名, [2] 是色碼
-                                    customColors[row[0].trim()] = row[2].trim();
-                                }
-                            });
-                        }
-                        applyCustomColors(); // 套用最新從雲端抓下來的顏色
-                    }
-
-                    systemConfig = {};
-                    let definedCategories = [];
-                    let definedZones = [];
-                    let definedStatuses = [];
-
-                    if (configData.values && configData.values.length > 1) {
-                        configData.values.forEach((row, index) => {
-                            if (index === 0) return; 
-                            if (row[0]) systemConfig[row[0].trim()] = (row[1] || '').trim(); 
-                            if (row[2]) definedCategories.push(row[2].trim());         
-                            if (row[3]) definedZones.push(row[3].trim());              
-                            if (row[4]) definedStatuses.push(row[4].trim());          
-                        });
-                    }
-
-                    if (systemConfig['SYS_APP_TITLE']) {
-                        document.title = systemConfig['SYS_APP_TITLE'];
-                    }
-                    if (systemConfig['SYS_CUSTOM_CSS']) {
-                        document.getElementById('dynamic-spreadsheet-styles').textContent = systemConfig['SYS_CUSTOM_CSS'];
-                    }
-
-                    dataHeaders = (objectsData.values[0] || []).map(h => typeof h === 'string' ? h.trim() : h);
-                    const rowsData = objectsData.values.slice(1);
-
-                    sysColId = systemConfig['SYS_COL_ID'] || dataHeaders[0] || 'ID';
-                    sysColCategory = systemConfig['SYS_COL_CATEGORY'] || dataHeaders[1] || '類別';
-                    sysColZone = systemConfig['SYS_COL_ZONE'] || dataHeaders[2] || '區域';    
-                    sysColStatus = systemConfig['SYS_COL_STATUS'] || dataHeaders[3] || '狀態';
-                    sysColName = systemConfig['SYS_COL_NAME'] || dataHeaders[5] || '代稱';    
-                    sysColIcon = systemConfig['SYS_COL_ICON'] || dataHeaders[6] || '圖標';    
-                    sysColSubName = systemConfig['SYS_COL_SUB_NAME'] || ''; 
-
-                    let dynamicCategories = new Set(definedCategories);
-                    let dynamicZones = new Set(definedZones);
-                    let dynamicStatusOptions = new Set(definedStatuses);
-                    
-                    let allParsedObjects = [];
-
-                    rowsData.forEach((row, index) => {
-                        const objData = {};
-                        dataHeaders.forEach((header, i) => {
-                            objData[header] = row[i] ? String(row[i]).trim() : '';
-                        });
-                        
-                        if (!objData[sysColId] && !objData[sysColName]) return;
-                        
-                        const cat = objData[sysColCategory] || '未分類';
-                        const zone = objData[sysColZone] || '未分類區域';
-                        const stat = objData[sysColStatus] || '正常';
-                        
-                        dynamicCategories.add(cat);
-                        dynamicZones.add(zone);
-                        dynamicStatusOptions.add(stat);
-                        
-                        objData._cat = cat;
-                        objData._zone = zone;
-                        objData._stat = stat;
-                        objData._rowIndex = index + 2;
-                        
-                        allParsedObjects.push(objData);
-                    });
-
-                    statusOptions = Array.from(dynamicStatusOptions);
-
-                    zonesContainer.innerHTML = '';
-                    allObjects = [];
-
-                    renderZones(Array.from(dynamicZones));
-                    renderCategories(Array.from(dynamicCategories));
-                    renderObjects(allParsedObjects);
-                    
-                    // 同步更新自訂顏色面板的圖例
-                    if (colorSettingsPanel.classList.contains('visible')) {
-                        renderColorLegend();
-                    }
-                    
-                    loadState();
-
-                } catch (error) {
-                    console.error("無法載入試算表資料:", error);
-                    showMessage("載入資料失敗。請檢查您的API金鑰或試算表配置。", 'red');
-                } finally {
-                    refreshButton.classList.remove('loading'); 
-                }
-            }
-            
-            function showMessage(message, color = 'green') {
-                messageBox.textContent = message; messageBox.style.backgroundColor = color;
-                messageBox.style.display = 'block'; messageBox.style.opacity = 1;
-                setTimeout(() => {
-                    messageBox.style.opacity = 0;
-                    setTimeout(() => messageBox.style.display = 'none', 500);
-                }, 3000);
-            }
-
-            function renderZones(zonesList) {
-                if (!zonesList || zonesList.length === 0) return;
-                zonesList.forEach((zoneName, index) => {
-                    const zoneDiv = document.createElement('div');
-                    zoneDiv.className = 'zone'; zoneDiv.id = `zone${index + 1}`;
-                    zoneDiv.innerHTML = `
-                        <div class="zone-header">
-                            <h3><span class="zone-name">${zoneName}</span><span class="zone-count">--(0)項</span></h3>
-                            <span class="zone-toggle-icon">▼</span>
-                        </div>
-                        <div class="zone-content"></div>
-                    `;
-                    zonesContainer.appendChild(zoneDiv);
-                });
-                zones = Array.from(document.querySelectorAll('.zone'));
-                attachZoneEventListeners();
-                updateToggleButton();
-            }
-
-            function renderCategories(categoriesList) {
-                if (!categoriesList || categoriesList.length === 0) return;
-                categoryButtonsContainer.innerHTML = '';
-                categoriesList.forEach((categoryName) => {
-                    const button = document.createElement('button');
-                    button.className = 'category-button active';
-                    button.setAttribute('data-category', categoryName);
-                    // 初始化時給予開啟的眼睛圖標
-                    button.innerHTML = `<span class="material-icons-outlined" style="font-size: 20px;">visibility</span><span>${categoryName}</span>`;
-                    categoryButtonsContainer.appendChild(button);
-                });
-                attachCategoryEventListeners();
-            }
-
-            function renderObjects(parsedData) {
-                if (!parsedData || parsedData.length === 0) return;
-
-                parsedData.forEach(objData => {
-                    const objectDiv = document.createElement('div');
-                    objectDiv.className = 'object';
-                    objectDiv.draggable = true;
-                    
-                    objectDiv.$data = objData;
-                    objectDiv.setAttribute('data-row-index', objData._rowIndex);
-                    
-                    objectDiv.setAttribute('data-id', objData[sysColId]);
-                    objectDiv.setAttribute('data-category', objData._cat);
-                    objectDiv.setAttribute('data-zone', objData._zone);
-                    objectDiv.setAttribute('data-status', objData._stat);
-                    
-                    const iconValue = objData[sysColIcon] ? String(objData[sysColIcon]).trim() : '';
-                    let iconHtml = '';
-                    if (iconValue) {
-                        if (iconValue.includes('<') && iconValue.includes('>')) {
-                            iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                        } else if (iconValue.startsWith('http')) {
-                            iconHtml = `<img src="${iconValue}" class="object-icon" alt="icon" onerror="this.style.display='none'">`;
-                        } else if (iconValue.includes('fa-')) {
-                            iconHtml = `<i class="${iconValue} object-icon-font"></i>`;
-                        } else if (/^[a-zA-Z0-9_]+$/.test(iconValue)) {
-                            iconHtml = `<span class="material-icons object-icon-font">${iconValue}</span>`;
-                        } else {
-                            iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                        }
-                    }
-
-                    const displayName = objData[sysColName] || '未命名';
-                    const displaySubName = sysColSubName && objData[sysColSubName] ? `<span>${objData[sysColSubName]}</span>` : '';
-                    objectDiv.innerHTML = `${iconHtml}<span>${displayName}</span>${displaySubName}`;
-                    
-                    allObjects.push(objectDiv);
-                    
-                    const targetZone = zones.find(zone => zone.querySelector('.zone-name').textContent === objData._zone);
-                    if (targetZone) {
-                        targetZone.querySelector('.zone-content').appendChild(objectDiv);
-                    }
-                });
-
-                attachObjectEventListeners();
-                filterObjects();
-            }
-
-            function attachZoneEventListeners() {
-                zones.forEach(zone => {
-                    const header = zone.querySelector('.zone-header');
-                    header.addEventListener('click', () => {
-                        zones.forEach(z => { if (z !== zone) z.classList.remove('expanded'); });
-                        zone.classList.toggle('expanded');
-                        updateToggleButton(); saveState(); 
-                    });
-
-                    const dropAreas = [header, zone.querySelector('.zone-content')];
-                    dropAreas.forEach(dropArea => {
-                        dropArea.addEventListener('dragover', (e) => {
-                            e.preventDefault();
-                            if (draggedItem) { zone.classList.add('expanded'); dropArea.classList.add('drag-over'); }
-                        });
-
-                        dropArea.addEventListener('dragleave', (e) => { dropArea.classList.remove('drag-over'); });
-
-                        dropArea.addEventListener('drop', (e) => {
-                            e.preventDefault(); dropArea.classList.remove('drag-over');
-                            if (draggedItem) {
-                                zone.querySelector('.zone-content').appendChild(draggedItem);
-                                const rowIndex = draggedItem.getAttribute('data-row-index');
-                                const newZone = zone.querySelector('.zone-name').textContent;
-                                
-                                updateObjectData(rowIndex, { [sysColZone]: newZone });
-                                
-                                draggedItem.setAttribute('data-zone', newZone); 
-                                draggedItem.$data[sysColZone] = newZone; 
-                                draggedItem.$data._zone = newZone;
-                                saveState(); 
-                                updateZoneCounts(); 
-                            }
-                        });
-                    });
-                });
-            }
-
-            function attachObjectEventListeners() {
-                allObjects.forEach(item => {
-                    item.addEventListener('dragstart', (e) => {
-                        if (e.target.getAttribute('data-panel-open') === 'true') { e.preventDefault(); return; }
-                        draggedItem = e.target;
-                        setTimeout(() => e.target.classList.add('dragging'), 0);
-                    });
-
-                    item.addEventListener('dragend', (e) => {
-                        e.target.classList.remove('dragging');
-                        draggedItem = null;
-                    });
-
-                    item.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        
-                        const openPanel = document.querySelector('.object[data-panel-open="true"]');
-                        if (openPanel && openPanel !== item) openPanel.setAttribute('data-panel-open', 'false');
-                        
-                        const isOpen = item.getAttribute('data-panel-open') === 'true';
-                        item.setAttribute('data-panel-open', !isOpen);
-
-                        if (!isOpen) {
-                            stopAutoRefresh(); 
-                            
-                            objectPanelTitle.innerHTML = item.$data[sysColName] || '詳細資料';
-                            
-                            let previewHTML = '';
-                            dataHeaders.forEach(header => {
-                                const value = item.$data[header];
-                                if (value !== undefined && value !== '') {
-                                    let displayValue = value;
-                                    // 結合 link 圖標呈現更精緻的網址超連結
-                                    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
-                                        displayValue = `<a href="${value}" target="_blank" style="color: #3f51b5; text-decoration: underline; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
-                                            <span class="material-icons-outlined" style="font-size: 18px;">link</span>按我查閱
-                                        </a>`;
-                                    }
-                                    previewHTML += `<div style="margin-bottom: 5px;"><strong>${header}：</strong> <span>${displayValue}</span></div>`;
-                                }
-                            });
-                            objectPanelContent.innerHTML = previewHTML;
-                            
-                            objectInfoPanel.classList.add('visible');
-                            changeBtn.style.display = 'block'; closeBtnInline.style.display = 'flex';
-                            confirmBtn.style.display = 'none'; cancelBtnInline.style.display = 'none'; 
-                            propertyArea.classList.remove('visible');
-                            
-                            generateDynamicPropertyArea(item);
-                            
-                            objectInfoPanel.currentObject = item;
-                            saveState(); 
-                        } else {
-                            closeObjectPanel(); 
-                        }
-                    });
-                });
-            }
-
-            function generateDynamicPropertyArea(item) {
-                propertyArea.innerHTML = '';
-                const objData = item.$data;
-
-                dataHeaders.forEach((header, index) => { 
-                    if (header === sysColId || index === 6 || index === 7 || index === 8) return;
-
-                    const rowDiv = document.createElement('div');
-                    rowDiv.innerHTML = `<span class="label">${header}：</span>`;
-                    
-                    if (header === sysColZone) {
-                        const container = document.createElement('div');
-                        container.className = 'status-buttons-container';
-                        container.id = 'dynamic-zone-container';
-                        zones.map(z => z.querySelector('.zone-name').textContent).forEach(zName => {
-                            const btn = document.createElement('button');
-                            btn.textContent = zName; btn.className = 'status-button zone-button';
-                            if (zName === objData[header] || zName === objData._zone) btn.classList.add('active');
-                            btn.addEventListener('click', () => {
-                                Array.from(container.children).forEach(b => b.classList.remove('active'));
-                                btn.classList.add('active');
-                            });
-                            container.appendChild(btn);
-                        });
-                        rowDiv.appendChild(container);
-                    } 
-                    else if (header === sysColStatus) {
-                        const container = document.createElement('div');
-                        container.className = 'status-buttons-container';
-                        container.id = 'dynamic-status-container';
-                        statusOptions.forEach(sName => {
-                            const btn = document.createElement('button');
-                            btn.textContent = sName; 
-                            btn.className = 'status-button';
-                            btn.setAttribute('data-status', sName); 
-                            
-                            if (sName === objData[header] || sName === objData._stat) btn.classList.add('active');
-                            btn.addEventListener('click', () => {
-                                Array.from(container.children).forEach(b => b.classList.remove('active'));
-                                btn.classList.add('active');
-                            });
-                            container.appendChild(btn);
-                        });
-                        rowDiv.appendChild(container);
-                    } 
-                    else {
-                        const input = document.createElement('input');
-                        input.type = 'text';
-                        input.className = 'input-field dynamic-input'; 
-                        input.setAttribute('data-field', header);
-                        input.value = objData[header] || '';
-                        rowDiv.appendChild(input);
-                    }
-                    propertyArea.appendChild(rowDiv);
-                });
-            }
-
-            // ---------------- 雲端配色庫同步功能 ---------------- //
-            
-            // 將當前「所有可改色的項目」及它們的「最新色碼」一次性打包送給後端覆寫
-            async function saveAllColors() {
-                if (APPS_SCRIPT_URL.includes('請在此貼上')) return;
-                
-                // 整理出所有 statusOptions 及其當前對應的色碼 (若無則為空字串)
-                const payloadData = {};
-                statusOptions.forEach(status => {
-                    payloadData[status] = customColors[status] || '';
-                });
-
-                try {
-                    const response = await fetch(APPS_SCRIPT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ 
-                            action: 'updateAllColors', 
-                            data: payloadData 
-                        })
-                    });
-                    const responseText = await response.text();
-                    const result = JSON.parse(responseText);
-                    if (result.success) {
-                        console.log("已成功同步完整配色庫至雲端");
-                    }
-                } catch(e) {
-                    console.error("更新完整配色庫失敗", e);
-                    showMessage("顏色存檔時發生網路錯誤", 'red');
-                }
-            }
-
-            function renderColorLegend() {
-                colorLegendContent.innerHTML = '';
-                
-                statusOptions.forEach(status => {
-                    const row = document.createElement('div');
-                    row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.justifyContent = 'space-between';
-                    row.style.gap = '10px'; row.style.padding = '10px 15px'; row.style.backgroundColor = '#f9f9f9';
-                    row.style.borderRadius = '8px'; row.style.border = '1px solid #eee';
-
-                    const label = document.createElement('div');
-                    label.style.fontWeight = 'bold'; label.style.width = '70px'; label.style.flexShrink = '0';
-                    label.textContent = status;
-
-                    const objLegend = document.createElement('div');
-                    objLegend.className = 'object'; objLegend.setAttribute('data-status', status);
-                    objLegend.style.flex = '1'; objLegend.style.cursor = 'pointer'; objLegend.style.marginBottom = '0'; 
-                    objLegend.innerHTML = `<span>物件圖例</span>`;
-                    
-                    const btnLegend = document.createElement('button');
-                    btnLegend.className = 'status-button active'; btnLegend.setAttribute('data-status', status);
-                    btnLegend.style.cursor = 'pointer'; btnLegend.textContent = `按鈕圖例`;
-
-                    const colorInput = document.createElement('input');
-                    colorInput.type = 'color'; colorInput.style.display = 'none';
-                    if (customColors[status]) { colorInput.value = customColors[status]; }
-
-                    const triggerPicker = () => colorInput.click();
-                    objLegend.addEventListener('click', triggerPicker);
-                    btnLegend.addEventListener('click', triggerPicker);
-
-                    // 在拉動選色器時：僅即時預覽 (UI 改變)，不浪費網路資源送 API
-                    colorInput.addEventListener('input', (e) => {
-                        const newColor = e.target.value;
-                        customColors[status] = newColor;
-                        applyCustomColors();
-                    });
-
-                    // 放開滑鼠 (確定選色) 後：將當前所有的最新配色清單打包，一次性覆寫雲端
-                    colorInput.addEventListener('change', async (e) => {
-                        const newColor = e.target.value;
-                        customColors[status] = newColor;
-                        applyCustomColors();
-                        showMessage("正在將最新配色庫同步至雲端...", '#ff9800');
-                        await saveAllColors();
-                        showMessage("雲端配色庫已全面更新！", 'green');
-                    });
-
-                    row.appendChild(label); row.appendChild(objLegend); row.appendChild(btnLegend); row.appendChild(colorInput);
-                    colorLegendContent.appendChild(row);
-                });
-            }
-
-            openColorPanelBtn.addEventListener('click', () => {
-                renderColorLegend(); colorSettingsPanel.classList.add('visible'); floatingPanel.classList.remove('expanded'); stopAutoRefresh();
-            });
-
-            closeColorPanelBtn.addEventListener('click', () => {
-                colorSettingsPanel.classList.remove('visible'); startAutoRefresh();
-            });
-
-            resetColorsBtn.addEventListener('click', async () => {
-                if(confirm("確定要清除所有自訂顏色，恢復預設樣式嗎？(將同步覆寫清除試算表中的配色紀錄)")) {
-                    showMessage("正在清除雲端配色...", '#ff9800');
-                    customColors = {};
-                    applyCustomColors();
-                    renderColorLegend(); 
-                    await saveAllColors(); 
-                    showMessage("配色庫已全部恢復預設。", 'green');
-                }
-            });
-
-            // ------------------------------------------------ //
-
-            function attachCategoryEventListeners() {
-                const categoryButtons = document.querySelectorAll('.category-button');
-                categoryButtons.forEach(button => {
-                    button.addEventListener('click', () => {
-                        button.classList.toggle('active'); 
-                        
-                        // 同步切換眼睛圖標
-                        const iconSpan = button.querySelector('.material-icons-outlined');
-                        if (iconSpan) {
-                            iconSpan.textContent = button.classList.contains('active') ? 'visibility' : 'visibility_off';
-                        }
-                        
-                        filterObjects(); saveState(); 
-                    });
-                });
-            }
-
-            function areAllZonesExpanded() { return Array.from(zones).every(zone => zone.classList.contains('expanded')); }
-
-            function updateToggleButton() {
-                if (areAllZonesExpanded()) { toggleAllBtn.textContent = '全部收合'; toggleAllBtn.classList.remove('white-bg'); } 
-                else { toggleAllBtn.textContent = '全部展開'; toggleAllBtn.classList.add('white-bg'); }
-            }
-            
-            function filterObjects() {
-                const selectedCategories = Array.from(document.querySelectorAll('.category-button.active')).map(btn => btn.getAttribute('data-category'));
-                allObjects.forEach(object => {
-                    if (selectedCategories.includes(object.getAttribute('data-category'))) object.classList.remove('hidden');
-                    else object.classList.add('hidden');
-                });
-                updateZoneCounts();
-            }
-
-            panelToggleBtn.addEventListener('click', () => { floatingPanel.classList.add('expanded'); stopAutoRefresh(); saveState(); });
-            collapseBtn.addEventListener('click', () => { floatingPanel.classList.remove('expanded'); startAutoRefresh(); saveState(); });
-
-            toggleAllBtn.addEventListener('click', () => {
-                if (areAllZonesExpanded()) zones.forEach(zone => zone.classList.remove('expanded'));
-                else zones.forEach(zone => zone.classList.add('expanded'));
-                updateToggleButton(); saveState(); 
-            });
-            
-            function closeObjectPanel() {
-                const openPanel = document.querySelector('.object[data-panel-open="true"]');
-                if (openPanel) openPanel.setAttribute('data-panel-open', 'false');
-                objectInfoPanel.classList.remove('visible');
-                changeBtn.style.display = 'none'; closeBtnInline.style.display = 'none';
-                confirmBtn.style.display = 'none'; cancelBtnInline.style.display = 'none'; 
-                propertyArea.classList.remove('visible');
-                startAutoRefresh(); saveState(); 
-            }
-
-            closeBtnInline.addEventListener('click', closeObjectPanel); 
-            cancelBtnInline.addEventListener('click', closeObjectPanel); 
-
-            document.addEventListener('click', (e) => {
-                if (objectInfoPanel.classList.contains('visible') && !objectInfoPanel.contains(e.target)) {
-                    if (!e.target.closest('.object')) closeObjectPanel();
-                }
-                if (colorSettingsPanel.classList.contains('visible') && !colorSettingsPanel.contains(e.target)) {
-                    if (!e.target.closest('#open-color-panel-btn')) {
-                        colorSettingsPanel.classList.remove('visible'); startAutoRefresh();
-                    }
-                }
-            });
-
-            objectPanelContent.addEventListener('mousedown', (e) => { document.execCommand('copy'); console.log('已複製'); });
-            
-            changeBtn.addEventListener('click', () => {
-                changeBtn.style.display = 'none'; closeBtnInline.style.display = 'none'; 
-                confirmBtn.style.display = 'block'; cancelBtnInline.style.display = 'block'; 
-                propertyArea.classList.add('visible'); saveState(); 
-            });
-
-            confirmBtn.addEventListener('click', () => {
-                const currentObject = objectInfoPanel.currentObject;
-                if (!currentObject) return;
-
-                const rowIndex = currentObject.getAttribute('data-row-index');
-                const allCollectedData = {};
-
-                const activeZoneBtn = document.querySelector('#dynamic-zone-container .status-button.active');
-                if (activeZoneBtn) allCollectedData[sysColZone] = activeZoneBtn.textContent;
-
-                const activeStatusBtn = document.querySelector('#dynamic-status-container .status-button.active');
-                if (activeStatusBtn) allCollectedData[sysColStatus] = activeStatusBtn.textContent;
-
-                document.querySelectorAll('.dynamic-input').forEach(input => {
-                    const fieldName = input.getAttribute('data-field');
-                    allCollectedData[fieldName] = input.value;
-                });
-
-                const newDataToUpdate = {};
-                let hasChanges = false;
-                for (let key in allCollectedData) {
-                    if (allCollectedData[key] !== currentObject.$data[key]) {
-                        newDataToUpdate[key] = allCollectedData[key];
-                        hasChanges = true;
-                    }
-                }
-
-                if (!hasChanges) {
-                    closeObjectPanel();
-                    showMessage("資料未變動，無須更新。", '#ff9800'); 
-                    return; 
-                }
-
-                const oldZone = currentObject.getAttribute('data-zone');
-                
-                for(let key in newDataToUpdate) {
-                    currentObject.$data[key] = newDataToUpdate[key];
-                }
-                
-                currentObject.$data._zone = currentObject.$data[sysColZone];
-                currentObject.$data._stat = currentObject.$data[sysColStatus];
-                currentObject.setAttribute('data-zone', currentObject.$data._zone);
-                currentObject.setAttribute('data-status', currentObject.$data._stat);
-                
-                const iconValue = currentObject.$data[sysColIcon] ? String(currentObject.$data[sysColIcon]).trim() : '';
-                let iconHtml = '';
-                if (iconValue) {
-                    if (iconValue.includes('<') && iconValue.includes('>')) {
-                        iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                    } else if (iconValue.startsWith('http')) {
-                        iconHtml = `<img src="${iconValue}" class="object-icon" alt="icon" onerror="this.style.display='none'">`;
-                    } else if (iconValue.includes('fa-')) {
-                        iconHtml = `<i class="${iconValue} object-icon-font"></i>`;
-                    } else if (/^[a-zA-Z0-9_]+$/.test(iconValue)) {
-                        iconHtml = `<span class="material-icons object-icon-font">${iconValue}</span>`;
-                    } else {
-                        iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                    }
-                }
-                
-                const dispName = currentObject.$data[sysColName] || '未命名';
-                const dispSub = sysColSubName && currentObject.$data[sysColSubName] ? `<span>${currentObject.$data[sysColSubName]}</span>` : '';
-                currentObject.innerHTML = `${iconHtml}<span>${dispName}</span>${dispSub}`;
-
-                updateObjectData(rowIndex, newDataToUpdate);
-                
-                const newZone = currentObject.$data._zone;
-                if (oldZone !== newZone) {
-                    const targetZone = zones.find(zone => zone.querySelector('.zone-name').textContent === newZone);
-                    if (targetZone) targetZone.querySelector('.zone-content').appendChild(currentObject);
-                }
-
-                closeObjectPanel(); saveState(); updateZoneCounts();
-            });
-
-            async function updateObjectData(rowIndex, dataPayload) {
-                if (APPS_SCRIPT_URL.includes('請在此貼上') || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT')) {
-                    showMessage("請先在 Apps Script 中部署程式碼並更新 URL", 'red'); return;
-                }
-                try {
-                    const response = await fetch(APPS_SCRIPT_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'update', rowIndex: rowIndex, data: dataPayload })
-                    });
-                    
-                    const responseText = await response.text();
-                    let result;
-                    try { result = JSON.parse(responseText); } catch(e) { throw new Error("後端回傳異常，可能是權限設定沒有設為「所有人」，或者程式當機。"); }
-                    
-                    if (result.success) showMessage("資料已成功寫入試算表！", 'green');
-                    else showMessage("後端寫入失敗：" + result.error, 'red');
-                    
-                } catch (error) {
-                    console.error("更新資料失敗:", error);
-                    showMessage("連線異常或後端崩潰：" + error.message, 'red');
-                }
-            }
-            
-            fetchSpreadsheetData().then(() => startAutoRefresh());
-        });
-    </script>
     
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-                    navigator.serviceWorker.register('./sw.js')
-                        .then(r => console.log('SW註冊成功')).catch(e => console.error('SW註冊失敗', e));
-                } else {
-                    console.log('當前環境 (' + window.location.protocol + ') 暫不支援 Service Worker 註冊。');
-                }
-            });
+    <div id="hierarchyContainer" class="space-y-4"></div>
+
+    <div id="emptyState" class="hidden py-16 text-center bg-white rounded-2xl border border-slate-200/80">
+      <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2.5">
+        <span class="material-icons">filter_alt_off</span>
+      </div>
+      <p class="text-sm font-medium text-slate-700">找不到符合篩選條件的設備</p>
+      <button type="button" onclick="UIController.resetFilters()" class="mt-3 px-3.5 py-1.5 text-xs font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+        重設篩選
+      </button>
+    </div>
+  </main>
+
+  <!-- 詳情面板 -->
+  <div id="detailModal" onclick="UIController.closeDetailModal()" class="hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 transition-opacity">
+    <div onclick="event.stopPropagation()" class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="modalIconBox" class="w-10 h-10 rounded-xl bg-white border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0 shadow-2xs"></div>
+          <div class="min-w-0">
+            <h2 id="modalAlias" class="text-base font-semibold text-slate-900 truncate">設備代稱</h2>
+            <p id="modalItemName" class="text-xs text-slate-500 truncate">正式品項</p>
+          </div>
+        </div>
+        <button type="button" onclick="UIController.closeDetailModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer">
+          <span class="material-icons" style="font-size: 18px;">close</span>
+        </button>
+      </div>
+      <div id="modalBody" class="p-5 space-y-3.5 text-xs sm:text-sm"></div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * Config
+     * ============================================================================
+     */
+    const Config = {
+      // 試算表 ID（網址：https://docs.google.com/spreadsheets/d/【這串就是ID】/edit）
+      SHEET_ID: '1UGZQa5FQY-3CaTtC7-8LfJz70sDX1UbkbVDAGciEZjQ',
+
+      // 可選：指定分頁（兩者皆留空時讀取第一個分頁）
+      SHEET_GID: '',       // 例如 '0'
+      SHEET_NAME: '',      // 例如 '工作表1'
+
+      // 單一連線通道逾時時間（毫秒）
+      TIMEOUT_MS: 10000,
+
+      STATUS_STYLES: {
+        '正常': {
+          cardClass: 'bg-white border-slate-200/90 hover:border-slate-400 hover:shadow-xs',
+          iconClass: 'text-slate-600 group-hover:text-slate-900',
+          textClass: 'text-slate-800',
+          badge: 'bg-slate-100 text-slate-700 border-slate-200',
+          dot: '',
+          showDot: false
+        },
+        '損壞': {
+          cardClass: 'bg-rose-600 border-rose-700 hover:bg-rose-700 shadow-2xs',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-rose-50 text-rose-700 border-rose-200',
+          dot: 'bg-rose-500',
+          showDot: true
+        },
+        '儲備': {
+          cardClass: 'bg-sky-600 border-sky-700 hover:bg-sky-700 shadow-2xs',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-sky-50 text-sky-700 border-sky-200',
+          dot: 'bg-sky-500',
+          showDot: true
+        },
+        '暫代': {
+          cardClass: 'bg-amber-500 border-amber-600 hover:bg-amber-600 shadow-2xs',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-amber-50 text-amber-700 border-amber-200',
+          dot: 'bg-amber-500',
+          showDot: true
+        },
+        '外借': {
+          cardClass: 'bg-teal-600 border-teal-700 hover:bg-teal-700 shadow-2xs',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-teal-50 text-teal-700 border-teal-200',
+          dot: 'bg-teal-500',
+          showDot: true
+        },
+        '送修': {
+          cardClass: 'bg-orange-500 border-orange-600 hover:bg-orange-600 shadow-2xs',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-orange-50 text-orange-700 border-orange-200',
+          dot: 'bg-orange-500',
+          showDot: true
         }
-    </script>
+      },
+
+      FALLBACK_ITEMS: [
+        { rowNumber: 2, item: '投影機', category: '媒體', location: '四樓 歡喜地', status: '正常', note: '', alias: '投影機', iconHtml: '<span class="material-icons">videocam</span>', model: '', manualUrl: '', extraInfo: '' },
+        { rowNumber: 3, item: '音響擴大器', category: '固定設備', location: '三樓 音控室', status: '正常', note: '', alias: '音響', iconHtml: '<span class="material-icons">speaker</span>', model: 'YAMAHA MA2120', manualUrl: 'https://tw.yamaha.com/zh/download/files/2097944/', extraInfo: '' },
+        { rowNumber: 4, item: '麥克風接收天線', category: '固定設備', location: '四樓 歡喜地', status: '正常', note: '', alias: '接收器', iconHtml: '<span class="material-icons">settings_input_antenna</span>', model: 'MIPRO ACT 323', manualUrl: 'https://www.youtube.com/watch?v=7bTNLrbrvAE', extraInfo: '' },
+        { rowNumber: 6, item: '無線麥克風', category: '音控', location: '一樓 齋堂', status: '正常', note: '#2', alias: '無線2 (5D)', iconHtml: '<span class="material-icons">mic</span>', model: 'MIPRO ACT 33H', manualUrl: 'https://youtu.be/cOe7mJ5Ank8', extraInfo: '' },
+        { rowNumber: 19, item: '無線麥克風', category: '音控', location: '三樓 音控室', status: '損壞', note: '#2-舊', alias: '無線2 (6C)', iconHtml: '<span class="material-icons">mic</span>', model: 'MIPRO ACT 33H', manualUrl: 'https://youtu.be/cOe7mJ5Ank8', extraInfo: '' },
+        { rowNumber: 20, item: '無線麥克風', category: '音控', location: '三樓 音控室', status: '儲備', note: '2025購入', alias: '無線麥', iconHtml: '<span class="material-icons">mic</span>', model: 'MIPRO ACT 32H', manualUrl: 'https://youtu.be/cOe7mJ5Ank8', extraInfo: '' }
+      ]
+    };
+
+    /**
+     * ============================================================================
+     * AppState
+     * ============================================================================
+     */
+    const AppState = {
+      items: [],
+      meta: {
+        isLive: false,
+        transport: '',
+        lastSyncedAt: null
+      },
+      dict: {
+        categories: ['音控', '媒體', '攝錄', '固定設備'],
+        locations: ['四樓 歡喜地', '三樓 大殿', '三樓 音控室', '二樓 大教室', '二樓 小教室', '二樓 辦公室', '一樓 齋堂'],
+        statuses: ['正常', '儲備', '暫代', '外借', '送修', '損壞']
+      },
+      ui: {
+        locationFilter: 'ALL',
+        categoryFilter: 'ALL',
+        statusFilter: 'ALL',
+        groupBy: 'location',
+        collapsedGroups: new Set()
+      }
+    };
+
+    /**
+     * ============================================================================
+     * DataService（純前端多通道讀取 Google Sheets，徹底避開 CORS 限制）
+     * ----------------------------------------------------------------------------
+     * 讀取策略（依序自動降級，完全不依賴 GAS 或第三方 Proxy）：
+     *   1. JSONP (<script> 動態注入)：Google Visualization API 原生支援
+     *      responseHandler 回呼，瀏覽器載入 <script> 不受 CORS Policy 限制，
+     *      即使直接雙擊本機 HTML 檔 (file:// Origin: null) 也能順利讀取全資料。
+     *   2. Fetch gviz/tq (CORS 模式)：備援方案，適用於 CSP 禁用動態外部腳本的環境。
+     *   3. Fetch CSV Export：最終備援，透過標準 CSV 匯出端點與 RFC 4180 解析器讀取。
+     * ============================================================================
+     */
+    const DataService = {
+      _isFetching: false,
+
+      normalizeText(val) {
+        return String(val || '').replace(/\s+/g, ' ').trim();
+      },
+
+      setSyncStatus(state, message) {
+        const dot = document.getElementById('syncDot');
+        const label = document.getElementById('syncLabel');
+        if (!dot || !label) return;
+
+        if (state === 'loading') {
+          dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+          label.textContent = message || '同步中';
+        } else if (state === 'live') {
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          label.textContent = message || '已連線';
+        } else {
+          dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+          label.textContent = message || '連線異常';
+        }
+      },
+
+      showErrorBanner(detailText) {
+        const banner = document.getElementById('syncErrorBanner');
+        const detail = document.getElementById('syncErrorDetail');
+        if (!banner || !detail) return;
+        detail.textContent = detailText;
+        banner.classList.remove('hidden');
+      },
+
+      hideErrorBanner() {
+        const banner = document.getElementById('syncErrorBanner');
+        if (banner) banner.classList.add('hidden');
+      },
+
+      /**
+       * 建立 gviz 查詢網址
+       * @param {string|null} callbackName 若提供則啟用 JSONP responseHandler
+       */
+      buildGvizUrl(callbackName = null) {
+        const tqx = callbackName
+          ? `out:json;responseHandler:${callbackName}`
+          : 'out:json';
+        let url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(Config.SHEET_ID)}/gviz/tq?tqx=${tqx}&headers=1`;
+        if (Config.SHEET_GID) url += `&gid=${encodeURIComponent(Config.SHEET_GID)}`;
+        if (Config.SHEET_NAME) url += `&sheet=${encodeURIComponent(Config.SHEET_NAME)}`;
+        url += `&_t=${Date.now()}`;
+        return url;
+      },
+
+      /**
+       * 建立 CSV 匯出網址（備援用）
+       */
+      buildCsvUrl() {
+        let url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(Config.SHEET_ID)}/export?format=csv`;
+        if (Config.SHEET_GID) url += `&gid=${encodeURIComponent(Config.SHEET_GID)}`;
+        url += `&_t=${Date.now()}`;
+        return url;
+      },
+
+      /**
+       * 通道 1：純前端 JSONP 讀取（完全繞過瀏覽器 CORS Policy）
+       */
+      fetchViaJsonp() {
+        return new Promise((resolve, reject) => {
+          const cbName = `__gviz_cb_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+          const script = document.createElement('script');
+          let settled = false;
+
+          const cleanup = () => {
+            clearTimeout(timer);
+            try {
+              delete window[cbName];
+            } catch (_) {
+              window[cbName] = undefined;
+            }
+            if (script.parentNode) {
+              script.parentNode.removeChild(script);
+            }
+          };
+
+          const finish = (err, data) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (err) reject(err);
+            else resolve(data);
+          };
+
+          // 註冊全域回呼函式，讓 Google 回傳的腳本直接注入完整 JSON 物件
+          window[cbName] = (responseObj) => {
+            try {
+              if (!responseObj || typeof responseObj !== 'object') {
+                throw new Error('JSONP 回傳資料格式異常');
+              }
+              if (responseObj.status === 'error') {
+                const msg = (responseObj.errors || [])
+                  .map(e => e.detailed_message || e.message || e.reason)
+                  .filter(Boolean)
+                  .join('；');
+                throw new Error(msg || 'Google Sheets 回傳錯誤（請確認權限已公開檢視）');
+              }
+              const items = this.parseGvizObject(responseObj);
+              finish(null, items);
+            } catch (parseErr) {
+              finish(parseErr);
+            }
+          };
+
+          script.async = true;
+          script.src = this.buildGvizUrl(cbName);
+
+          script.onerror = () => {
+            finish(new Error('JSONP 腳本載入失敗（可能是網路中斷、試算表 ID 錯誤或權限未公開）'));
+          };
+
+          // 若腳本載入完畢但未觸發回呼，代表 Google 回傳了登入頁面 HTML 而非資料
+          script.onload = () => {
+            setTimeout(() => {
+              if (!settled) {
+                finish(new Error('試算表未回傳有效資料（請確認共用權限已設為「知道連結的任何人 → 檢視者」）'));
+              }
+            }, 50);
+          };
+
+          const timer = setTimeout(() => {
+            finish(new Error(`JSONP 連線逾時（超過 ${Config.TIMEOUT_MS / 1000} 秒）`));
+          }, Config.TIMEOUT_MS);
+
+          document.head.appendChild(script);
+        });
+      },
+
+      /**
+       * 通道 2：標準 Fetch 讀取 gviz/tq
+       */
+      async fetchViaGvizCors() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Config.TIMEOUT_MS);
+        try {
+          const url = this.buildGvizUrl(null);
+          const res = await fetch(url, {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            signal: controller.signal
+          });
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+          }
+          const text = await res.text();
+          if (text.includes('Sign in') || text.includes('accounts.google.com')) {
+            throw new Error('試算表需要登入權限，請改為「知道連結的任何人可檢視」');
+          }
+          const start = text.indexOf('{');
+          const end = text.lastIndexOf('}') + 1;
+          if (start === -1 || end === 0) {
+            throw new Error('gviz 回傳內容不包含有效 JSON');
+          }
+          const json = JSON.parse(text.slice(start, end));
+          return this.parseGvizObject(json);
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+
+      /**
+       * 通道 3：標準 Fetch 讀取 CSV 匯出端點
+       */
+      async fetchViaCsvCors() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Config.TIMEOUT_MS);
+        try {
+          const res = await fetch(this.buildCsvUrl(), {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            signal: controller.signal
+          });
+          if (!res.ok) {
+            throw new Error(`CSV HTTP ${res.status}`);
+          }
+          const csvText = await res.text();
+          if (csvText.includes('<!DOCTYPE html>') || csvText.includes('accounts.google.com')) {
+            throw new Error('CSV 匯出端點需要登入權限');
+          }
+          const matrix = this.parseCsvText(csvText);
+          if (matrix.length < 2) {
+            throw new Error('CSV 沒有足夠的資料列');
+          }
+          return this.mapMatrixToItems(matrix[0], matrix.slice(1));
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+
+      /**
+       * RFC 4180 CSV 解析器（支援引號、內嵌逗號與多行儲存格）
+       */
+      parseCsvText(text) {
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          const next = text[i + 1];
+
+          if (inQuotes) {
+            if (ch === '"' && next === '"') {
+              field += '"';
+              i++;
+            } else if (ch === '"') {
+              inQuotes = false;
+            } else {
+              field += ch;
+            }
+          } else {
+            if (ch === '"') {
+              inQuotes = true;
+            } else if (ch === ',') {
+              row.push(field);
+              field = '';
+            } else if (ch === '\r' && next === '\n') {
+              row.push(field);
+              rows.push(row);
+              row = [];
+              field = '';
+              i++;
+            } else if (ch === '\n' || ch === '\r') {
+              row.push(field);
+              rows.push(row);
+              row = [];
+              field = '';
+            } else {
+              field += ch;
+            }
+          }
+        }
+        if (field.length > 0 || row.length > 0) {
+          row.push(field);
+          rows.push(row);
+        }
+        return rows;
+      },
+
+      /**
+       * 從 gviz 儲存格提取乾淨字串（兼容 Date、公式與格式化顯示值）
+       */
+      extractGvizCellValue(cell) {
+        if (!cell) return '';
+        // 若 v 為 gviz Date(...) 字串，優先採用已格式化的 f
+        if (typeof cell.v === 'string' && cell.v.startsWith('Date(') && cell.f) {
+          return String(cell.f).trim();
+        }
+        if (cell.v != null && String(cell.v).trim() !== '') {
+          return String(cell.v).trim();
+        }
+        if (cell.f != null && String(cell.f).trim() !== '') {
+          return String(cell.f).trim();
+        }
+        return '';
+      },
+
+      /**
+       * 解析 gviz 回傳物件為標準設備清單
+       */
+      parseGvizObject(json) {
+        if (!json || !json.table || !Array.isArray(json.table.cols) || !Array.isArray(json.table.rows)) {
+          throw new Error('試算表沒有資料或結構異常');
+        }
+
+        let headers = json.table.cols.map(c => this.normalizeText(c.label || ''));
+        let rawRows = json.table.rows.map(r =>
+          (r && Array.isArray(r.c)) ? r.c.map(cell => this.extractGvizCellValue(cell)) : []
+        );
+
+        // 若試算表標題列未被 gviz 自動辨識進 cols.label，則取第一列作為標題
+        const hasAnyLabel = headers.some(h => h !== '');
+        if (!hasAnyLabel && rawRows.length > 0) {
+          headers = rawRows[0].map(h => this.normalizeText(h));
+          rawRows = rawRows.slice(1);
+        }
+
+        return this.mapMatrixToItems(headers, rawRows);
+      },
+
+      /**
+       * 將二維標題與資料列對應為統一的設備物件陣列
+       */
+      mapMatrixToItems(headers, dataRows) {
+        const normalizedHeaders = headers.map(h => this.normalizeText(h).toLowerCase());
+
+        // 欄位對應：優先完全相符，若無再進行模糊包含比對
+        const findCol = (...names) => {
+          for (const n of names) {
+            const target = n.toLowerCase();
+            const exactIdx = normalizedHeaders.findIndex(h => h === target);
+            if (exactIdx !== -1) return exactIdx;
+          }
+          for (const n of names) {
+            const target = n.toLowerCase();
+            const partialIdx = normalizedHeaders.findIndex(h => h.includes(target));
+            if (partialIdx !== -1) return partialIdx;
+          }
+          return -1;
+        };
+
+        const colMap = {
+          item:      findCol('品項', 'item', '設備', '名稱', '品名'),
+          category:  findCol('分類', 'category', '類別'),
+          location:  findCol('位置', 'location', '存放位置', '地點'),
+          status:    findCol('狀態', 'status'),
+          note:      findCol('備註', 'note', '說明'),
+          alias:     findCol('代稱', 'alias', '簡稱', '顯示名稱'),
+          model:     findCol('型號', 'model', '廠牌型號', '機型'),
+          manualUrl: findCol('說明書', 'manual', 'manualurl', '連結', '影片', '操作說明'),
+          extraInfo: findCol('相關資料', 'extrainfo', 'extra', '補充'),
+          icon:      findCol('圖標', 'icon', 'iconhtml', '圖示')
+        };
+
+        const items = [];
+        dataRows.forEach((cells, idx) => {
+          const get = (key) => {
+            const colIdx = colMap[key];
+            if (colIdx === -1 || colIdx >= cells.length) return '';
+            return String(cells[colIdx] || '').trim();
+          };
+
+          const rawItem = get('item');
+          const rawAlias = get('alias');
+          const itemName = rawItem || rawAlias;
+          if (!itemName) return; // 跳過完全空白列
+
+          // 處理圖標：支援完整 HTML 標籤、純 Material Icon 名稱，或依品項自動推斷
+          let iconHtml = get('icon');
+          if (iconHtml && !iconHtml.includes('<') && /^[a-z0-9_]+$/i.test(iconHtml)) {
+            iconHtml = `<span class="material-icons">${iconHtml}</span>`;
+          }
+          if (!iconHtml || !iconHtml.includes('material-icons')) {
+            const lowerName = itemName.toLowerCase();
+            if (lowerName.includes('投影') || lowerName.includes('projector')) {
+              iconHtml = '<span class="material-icons">videocam</span>';
+            } else if (lowerName.includes('音響') || lowerName.includes('擴大') || lowerName.includes('喇叭') || lowerName.includes('speaker')) {
+              iconHtml = '<span class="material-icons">speaker</span>';
+            } else if (lowerName.includes('麥克風') || lowerName.includes('mic')) {
+              iconHtml = '<span class="material-icons">mic</span>';
+            } else if (lowerName.includes('天線') || lowerName.includes('接收')) {
+              iconHtml = '<span class="material-icons">settings_input_antenna</span>';
+            } else if (lowerName.includes('相機') || lowerName.includes('攝影') || lowerName.includes('錄影')) {
+              iconHtml = '<span class="material-icons">photo_camera</span>';
+            } else if (lowerName.includes('螢幕') || lowerName.includes('電視') || lowerName.includes('顯示器')) {
+              iconHtml = '<span class="material-icons">tv</span>';
+            } else if (lowerName.includes('電腦') || lowerName.includes('筆電')) {
+              iconHtml = '<span class="material-icons">laptop</span>';
+            } else {
+              iconHtml = '<span class="material-icons">devices</span>';
+            }
+          }
+
+          items.push({
+            rowNumber: idx + 2,
+            item: itemName,
+            category: this.normalizeText(get('category')) || '其他',
+            location: this.normalizeText(get('location')) || '未指定位置',
+            status: this.normalizeText(get('status')) || '正常',
+            note: get('note'),
+            alias: rawAlias || itemName,
+            model: get('model'),
+            manualUrl: get('manualUrl'),
+            extraInfo: get('extraInfo'),
+            iconHtml
+          });
+        });
+
+        if (items.length === 0) {
+          throw new Error('已連線至試算表，但未解析出任何有效設備列（請確認標題列是否包含「品項」欄位）');
+        }
+
+        return items;
+      },
+
+      /**
+       * 依序嘗試純前端無 CORS 通道讀取全資料
+       */
+      async fetchFromSheet() {
+        if (!Config.SHEET_ID || Config.SHEET_ID.includes('請在這裡')) {
+          throw new Error('尚未設定試算表 ID（請在 Config.SHEET_ID 填入）');
+        }
+
+        const errors = [];
+        const strategies = [
+          { name: 'JSONP 直連 (無CORS限制)', fn: () => this.fetchViaJsonp() },
+          { name: 'Fetch gviz', fn: () => this.fetchViaGvizCors() },
+          { name: 'Fetch CSV 備援', fn: () => this.fetchViaCsvCors() }
+        ];
+
+        for (const strategy of strategies) {
+          try {
+            const items = await strategy.fn();
+            return { items, transport: strategy.name };
+          } catch (err) {
+            console.warn(`[DataService] 通道「${strategy.name}」失敗：`, err.message);
+            errors.push(`${strategy.name}：${err.message}`);
+          }
+        }
+
+        throw new Error(errors.join('\n'));
+      },
+
+      /**
+       * 依最新資料重建篩選字典（保留原本常用順序，並自動補入新分類）
+       */
+      rebuildDict(items) {
+        const locations = new Set();
+        const categories = new Set();
+        const statuses = new Set();
+
+        items.forEach(i => {
+          if (i.location) locations.add(i.location);
+          if (i.category) categories.add(i.category);
+          if (i.status) statuses.add(i.status);
+        });
+
+        const merge = (preferred, set) => {
+          const result = preferred.filter(x => set.has(x));
+          [...set].sort((a, b) => a.localeCompare(b, 'zh-Hant')).forEach(x => {
+            if (!result.includes(x)) result.push(x);
+          });
+          return result;
+        };
+
+        AppState.dict.locations = merge(AppState.dict.locations, locations);
+        AppState.dict.categories = merge(AppState.dict.categories, categories);
+        AppState.dict.statuses = merge(AppState.dict.statuses, statuses);
+      },
+
+      async init(isManual = false) {
+        if (this._isFetching) return;
+        this._isFetching = true;
+        this.setSyncStatus('loading', '同步中');
+
+        // 初次載入先呈現內建範例資料，避免畫面空白
+        if (!isManual && AppState.items.length === 0) {
+          AppState.items = Config.FALLBACK_ITEMS;
+          UIController.renderAll();
+        }
+
+        try {
+          const { items, transport } = await this.fetchFromSheet();
+          AppState.items = items;
+          AppState.meta.isLive = true;
+          AppState.meta.transport = transport;
+          AppState.meta.lastSyncedAt = new Date();
+
+          this.rebuildDict(items);
+          this.hideErrorBanner();
+          this.setSyncStatus('live', `已同步 (${items.length}筆)`);
+
+          const timeStr = AppState.meta.lastSyncedAt.toLocaleTimeString('zh-TW', { hour12: false });
+          document.getElementById('syncStatusBtn').title =
+            `同步成功｜通道：${transport}｜更新時間：${timeStr}（點擊重新同步）`;
+
+          UIController.renderAll();
+        } catch (err) {
+          console.warn('所有通道皆無法讀取試算表：', err.message);
+          if (AppState.items.length === 0) {
+            AppState.items = Config.FALLBACK_ITEMS;
+          }
+          AppState.meta.isLive = false;
+          this.setSyncStatus('offline', '連線異常');
+          this.showErrorBanner(err.message);
+          document.getElementById('syncStatusBtn').title = '讀取失敗（點擊重試）';
+          UIController.renderAll();
+        } finally {
+          this._isFetching = false;
+        }
+      }
+    };
+
+    /**
+     * ============================================================================
+     * UIController（保持原有極簡 UI/UX）
+     * ============================================================================
+     */
+    const UIController = {
+      escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      },
+
+      getStatusBadge(status) {
+        const st = status || '正常';
+        const style = Config.STATUS_STYLES[st] || Config.STATUS_STYLES['正常'];
+        const dotHtml = style.showDot
+          ? `<span class="w-1.5 h-1.5 rounded-full ${style.dot}"></span>`
+          : '';
+        return `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${style.badge}">
+            ${dotHtml}
+            <span>${this.escapeHtml(st)}</span>
+          </span>
+        `;
+      },
+
+      renderFilterSelects() {
+        const locSelect = document.getElementById('locationFilterSelect');
+        const catSelect = document.getElementById('categoryFilterSelect');
+        const stSelect = document.getElementById('statusFilterSelect');
+
+        locSelect.innerHTML = `<option value="ALL">全部</option>` +
+          AppState.dict.locations.map(loc =>
+            `<option value="${this.escapeHtml(loc)}" ${AppState.ui.locationFilter === loc ? 'selected' : ''}>${this.escapeHtml(loc)}</option>`
+          ).join('');
+
+        catSelect.innerHTML = `<option value="ALL">全部</option>` +
+          AppState.dict.categories.map(cat =>
+            `<option value="${this.escapeHtml(cat)}" ${AppState.ui.categoryFilter === cat ? 'selected' : ''}>${this.escapeHtml(cat)}</option>`
+          ).join('');
+
+        stSelect.innerHTML = `<option value="ALL">全部</option>` +
+          AppState.dict.statuses.map(st =>
+            `<option value="${this.escapeHtml(st)}" ${AppState.ui.statusFilter === st ? 'selected' : ''}>${this.escapeHtml(st)}</option>`
+          ).join('');
+      },
+
+      getFilteredItems() {
+        const { locationFilter, categoryFilter, statusFilter } = AppState.ui;
+        return AppState.items.filter(item => {
+          const matchLoc = (locationFilter === 'ALL' || item.location === locationFilter);
+          const matchCat = (categoryFilter === 'ALL' || item.category === categoryFilter);
+          const matchSt  = (statusFilter === 'ALL' || item.status === statusFilter);
+          return matchLoc && matchCat && matchSt;
+        });
+      },
+
+      renderHierarchyList() {
+        const container = document.getElementById('hierarchyContainer');
+        const emptyState = document.getElementById('emptyState');
+        const filtered = this.getFilteredItems();
+
+        if (filtered.length === 0) {
+          container.innerHTML = '';
+          emptyState.classList.remove('hidden');
+          return;
+        }
+
+        emptyState.classList.add('hidden');
+
+        const groups = {};
+        filtered.forEach(item => {
+          const key = item[AppState.ui.groupBy] || '其他';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(item);
+        });
+
+        let orderRef = [];
+        if (AppState.ui.groupBy === 'location') orderRef = AppState.dict.locations;
+        else if (AppState.ui.groupBy === 'category') orderRef = AppState.dict.categories;
+        else if (AppState.ui.groupBy === 'status') orderRef = AppState.dict.statuses;
+
+        const groupKeys = Object.keys(groups).sort((a, b) => {
+          const idxA = orderRef.indexOf(a);
+          const idxB = orderRef.indexOf(b);
+          if (idxA === -1 && idxB === -1) return a.localeCompare(b, 'zh-Hant');
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+
+        container.innerHTML = groupKeys.map(groupName => {
+          const groupItems = groups[groupName];
+          const isCollapsed = AppState.ui.collapsedGroups.has(groupName);
+          const damagedCount = groupItems.filter(i => i.status === '損壞').length;
+          const safeGroupArg = groupName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+          const statsText = (AppState.ui.groupBy !== 'status' && damagedCount > 0)
+            ? `${groupItems.length}項，<span class="text-rose-600 font-medium">${damagedCount}損壞</span>`
+            : `${groupItems.length}項`;
+
+          return `
+            <section class="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
+              <button type="button" onclick="UIController.toggleGroup('${safeGroupArg}')"
+                class="w-full px-4 py-2.5 flex items-center justify-between bg-slate-50/70 hover:bg-slate-100/70 transition-colors text-left select-none cursor-pointer">
+                <div class="flex items-center gap-2">
+                  <span class="material-icons text-slate-400 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : 'rotate-0'}" style="font-size: 18px;">expand_more</span>
+                  <span class="text-sm font-semibold text-slate-800">${this.escapeHtml(groupName)}</span>
+                  <span class="text-xs text-slate-500 ml-0.5">${statsText}</span>
+                </div>
+              </button>
+              <div class="${isCollapsed ? 'hidden' : 'p-3.5 border-t border-slate-100'}">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+                  ${groupItems.map(item => this.renderMiniCard(item)).join('')}
+                </div>
+              </div>
+            </section>
+          `;
+        }).join('');
+      },
+
+      renderMiniCard(item) {
+        const iconHtml = item.iconHtml && item.iconHtml.includes('material-icons')
+          ? item.iconHtml
+          : '<span class="material-icons">devices</span>';
+        const displayName = item.alias || item.item || '未命名';
+        const style = Config.STATUS_STYLES[item.status] || Config.STATUS_STYLES['正常'];
+
+        return `
+          <button type="button" onclick="UIController.openDetailModal(${item.rowNumber})"
+            class="group flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${style.cardClass}">
+            <span class="shrink-0 flex items-center justify-center transition-colors ${style.iconClass}">${iconHtml}</span>
+            <span class="text-xs sm:text-sm font-medium truncate ${style.textClass}">${this.escapeHtml(displayName)}</span>
+          </button>
+        `;
+      },
+
+      openDetailModal(rowNumber) {
+        const item = AppState.items.find(i => i.rowNumber === rowNumber);
+        if (!item) return;
+
+        const modal = document.getElementById('detailModal');
+        const iconBox = document.getElementById('modalIconBox');
+        const aliasEl = document.getElementById('modalAlias');
+        const itemNameEl = document.getElementById('modalItemName');
+        const bodyEl = document.getElementById('modalBody');
+
+        iconBox.innerHTML = item.iconHtml && item.iconHtml.includes('material-icons')
+          ? item.iconHtml
+          : '<span class="material-icons">devices</span>';
+        aliasEl.textContent = item.alias || item.item || '未命名';
+        itemNameEl.textContent = item.item || '-';
+
+        const noteText = (item.note || '').replace(/<br\s*\/?>/gi, ' / ');
+        const isVideo = item.manualUrl && (item.manualUrl.includes('youtube.com') || item.manualUrl.includes('youtu.be'));
+
+        bodyEl.innerHTML = `
+          <div class="flex items-center justify-between py-1">
+            <span class="text-slate-400">目前狀態</span>
+            ${this.getStatusBadge(item.status)}
+          </div>
+          <div class="flex items-center justify-between py-1 border-t border-slate-100">
+            <span class="text-slate-400">存放位置</span>
+            <span class="font-medium text-slate-800">${this.escapeHtml(item.location)}</span>
+          </div>
+          <div class="flex items-center justify-between py-1 border-t border-slate-100">
+            <span class="text-slate-400">設備分類</span>
+            <span class="font-medium text-slate-800">${this.escapeHtml(item.category)}</span>
+          </div>
+          <div class="flex items-center justify-between py-1 border-t border-slate-100 gap-4">
+            <span class="text-slate-400 shrink-0">廠牌型號</span>
+            <span class="font-mono text-xs text-slate-800 text-right">${this.escapeHtml(item.model || '未登錄')}</span>
+          </div>
+          ${noteText ? `
+            <div class="pt-2 border-t border-slate-100">
+              <span class="text-slate-400 block mb-1">備註</span>
+              <p class="text-slate-700 bg-slate-50 px-3 py-2 rounded-lg text-xs">${this.escapeHtml(noteText)}</p>
+            </div>
+          ` : ''}
+          ${item.extraInfo ? `
+            <div class="pt-2 border-t border-slate-100">
+              <span class="text-slate-400 block mb-1">相關資料</span>
+              <p class="text-slate-700 bg-slate-50 px-3 py-2 rounded-lg text-xs">${this.escapeHtml(item.extraInfo)}</p>
+            </div>
+          ` : ''}
+          ${item.manualUrl ? `
+            <div class="pt-3 border-t border-slate-100">
+              <a href="${this.escapeHtml(item.manualUrl)}" target="_blank" rel="noopener noreferrer"
+                class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-medium transition-colors">
+                <span class="material-icons" style="font-size: 16px;">${isVideo ? 'play_circle' : 'description'}</span>
+                <span>${isVideo ? '觀看教學影片' : '查看操作說明書'}</span>
+                <span class="material-icons" style="font-size: 14px;">open_in_new</span>
+              </a>
+            </div>
+          ` : ''}
+        `;
+
+        modal.classList.remove('hidden');
+      },
+
+      closeDetailModal() {
+        document.getElementById('detailModal').classList.add('hidden');
+      },
+
+      onFilterChange(type, value) {
+        if (type === 'location') AppState.ui.locationFilter = value;
+        if (type === 'category') AppState.ui.categoryFilter = value;
+        if (type === 'status') AppState.ui.statusFilter = value;
+        this.renderHierarchyList();
+      },
+
+      setGroupBy(field) {
+        AppState.ui.groupBy = field;
+        AppState.ui.collapsedGroups.clear();
+
+        const btnMap = {
+          location: document.getElementById('groupByLocationBtn'),
+          category: document.getElementById('groupByCategoryBtn'),
+          status: document.getElementById('groupByStatusBtn')
+        };
+
+        const activeClass = 'px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-800 bg-slate-800 text-white transition-colors cursor-pointer select-none whitespace-nowrap';
+        const inactiveClass = 'px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-300/90 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer select-none whitespace-nowrap';
+
+        Object.keys(btnMap).forEach(key => {
+          if (btnMap[key]) {
+            btnMap[key].className = (key === field) ? activeClass : inactiveClass;
+          }
+        });
+
+        this.renderHierarchyList();
+      },
+
+      toggleGroup(groupName) {
+        if (AppState.ui.collapsedGroups.has(groupName)) {
+          AppState.ui.collapsedGroups.delete(groupName);
+        } else {
+          AppState.ui.collapsedGroups.add(groupName);
+        }
+        this.renderHierarchyList();
+      },
+
+      resetFilters() {
+        AppState.ui.locationFilter = 'ALL';
+        AppState.ui.categoryFilter = 'ALL';
+        AppState.ui.statusFilter = 'ALL';
+        this.renderAll();
+      },
+
+      renderAll() {
+        this.renderFilterSelects();
+        this.renderHierarchyList();
+      }
+    };
+
+    // Esc 關閉面板
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') UIController.closeDetailModal();
+    });
+
+    // 頁面重新顯示時自動同步
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        DataService.init(false);
+      }
+    });
+
+    // 啟動
+    window.addEventListener('DOMContentLoaded', () => {
+      DataService.init(false);
+    });
+  </script>
 </body>
 </html>
