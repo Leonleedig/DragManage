@@ -1,1866 +1,1080 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title id="dynamic-page-title">影音器材列表</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="icon" type="image/x-icon" href="icon-r.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon-r.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
-    <link rel="manifest" href="manifest.json">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-    <style>
-        /* 基本樣式 */
-        body { font-family: Arial, sans-serif; background-color: #f4f7f9; margin: 0; padding: 20px; }
-        .zone { background-color: #fff; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); margin-bottom: 20px; overflow: hidden; transition: all 0.3s ease; }
-        .zone-header { padding: 5px 20px; background-color: #eef2f5; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background-color 0.3s ease, color 0.3s ease; }
-        .zone-header.highlighted { background-color: #fff9c4; } 
-        .zone-header h3 { margin: 0; color: #333; flex-grow: 1; display: flex; align-items: baseline; transition: color 0.3s ease; }
-        .zone-count { font-size: 0.85em; color: #666; font-weight: normal; margin-left: 5px; transition: color 0.3s ease; }
-        .zone-toggle-icon { font-size: 16px; margin-left: 10px; transition: transform 0.3s ease, color 0.3s ease; }
-        .zone.expanded .zone-toggle-icon { transform: rotate(180deg); }
-        .zone-content { padding: 5px; border-top: 1px solid #ddd; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 0; overflow: hidden; transition: max-height 0.4s ease-out, padding 0.4s ease-out; }
-        .zone.expanded .zone-content { max-height: 20000px; padding: 10px; }
-
-        .zone.task-zone { border: 2px dashed #3f51b5; box-shadow: 0 4px 12px rgba(63, 81, 181, 0.15); }
-        .zone.task-zone .zone-header { background-color: #e8eaf6; }
-        .delete-task-btn { background: none; border: none; color: #f44336; cursor: pointer; padding: 4px; display: flex; align-items: center; justify-content: center; margin-right: 5px; border-radius: 50%; transition: background-color 0.2s; }
-        .delete-task-btn:hover { background-color: rgba(244, 67, 54, 0.1); }
-        
-        .editable-task-name {
-            border-bottom: 1px dashed #3f51b5;
-            padding-bottom: 2px;
-            cursor: text;
-            min-width: 60px;
-            display: inline-block;
-            outline: none;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-        .editable-task-name:hover { background-color: rgba(63, 81, 181, 0.08); }
-        .editable-task-name:focus { background-color: #fff; border-bottom: 2px solid #3f51b5; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 0 4px; border-radius: 4px; }
-
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; margin-left: 15px; flex-shrink: 0; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        input:checked + .slider { background-color: #4CAF50; }
-        input:checked + .slider:before { transform: translateX(20px); }
-
-        .object { position: relative; background-color: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; text-align: center; font-size: 20px; cursor: grab; transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.4s ease; user-select: none; -webkit-user-select: none; touch-action: manipulation; display: flex; align-items: center; justify-content: center; gap: 8px; box-sizing: border-box; }
-        .object[data-panel-open="false"] { cursor: pointer; }
-        .object[data-panel-open="true"] { cursor: default; }
-        .object.hidden { display: none; }
-        .object.dragging { opacity: 0.5; transform: scale(0.95); }
-        .object span { pointer-events: none; }
-        .object-icon { width: 24px; height: 24px; object-fit: contain; pointer-events: none; }
-        .object-icon-font { font-size: 22px; pointer-events: none; display: flex; align-items: center; justify-content: center; }
-
-        .object[data-status*="損壞"] { background-color: #f44336; color: white; }
-        .object[data-status="儲備"], .object[data-status="暫代"] { background-color: #ff9900; color: white; }
-
-        .object-panel, .color-panel { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 95vw; height: 95vh; background-color: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); padding: 20px; z-index: 1001; display: none; flex-direction: column; justify-content: space-between; }
-        .object-panel h4, .color-panel h4 { margin-top: 0; }
-        .object-panel.visible, .color-panel.visible { display: flex; }
-        .object-panel .panel-body, .color-panel .panel-body { flex-grow: 1; overflow-y: auto; cursor: copy; padding-bottom: 5px; line-height: 1.5; }
-        .color-panel .panel-body { cursor: default; }
-
-        .action-bar-container { position: relative; height: 40px; display: flex; justify-content: center; align-items: center; margin-bottom: 5px; margin-top: 5px; width: 100%; }
-        .fine-line-raised { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background-color: #e0e0e0; z-index: 10; }
-        #panel-action-bar, .panel-action-bar-common { display: flex; align-items: center; justify-content: center; position: relative; z-index: 20; gap: 20px; padding: 0 10px; }
-        .action-slot { position: relative; height: 40px; }
-        .primary-slot, .cancel-slot { width: 100px; }
-        .action-slot button { position: absolute; top: 0; left: 0; width: 100%; border: none; cursor: pointer; transition: background-color 0.2s; font-size: 16px; color: white; border-radius: 4px; }
-        
-        #change-btn, #confirm-btn, #cancel-btn-inline { background-color: #3f51b5; padding: 8px 16px; display: block; }
-        #change-btn:hover, #confirm-btn:hover { background-color: #5c6bc0; }
-        #close-btn-inline { width: 40px; height: 40px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background-color: #f44336; left: auto; right: 0; }
-        #cancel-btn-inline { background-color: #6c757d; display: block; }
-        #cancel-btn-inline:hover { background-color: #5a6268; }
-
-        #apply-colors-btn, #cancel-colors-btn { border: none; color: white; padding: 10px 32px; font-size: 16px; border-radius: 6px; cursor: pointer; transition: background-color 0.2s; letter-spacing: 2px; }
-        #apply-colors-btn { background-color: #3f51b5; }
-        #apply-colors-btn:hover { background-color: #5c6bc0; }
-        #cancel-colors-btn { background-color: #6c757d; }
-        #cancel-colors-btn:hover { background-color: #5a6268; }
-
-        .property-area { background-color: transparent; border: none; border-radius: 4px; margin-bottom: 10%; padding: 0; width: 100%; display: none; box-sizing: border-box; text-align: left; max-height: 40vh; overflow-y: auto; }
-        .property-area.visible { display: block; }
-        .property-area > div { display: flex; align-items: center; margin-bottom: 10px; }
-        .property-area .label { white-space: nowrap; margin-right: 10px; font-weight: bold; min-width: 60px; }
-        .property-area .input-field { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 16px; }
-        
-        .status-buttons-container { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; }
-        .status-button { background-color: #e0e0e0; color: #333; border: 1px solid #ccc; border-radius: 4px; padding: 6px 10px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-        .status-button.active { background-color: #3f51b5; color: white; }
-
-        .floating-panel { position: fixed; bottom: 20px; right: 20px; background-color: #3f51b5; color: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); display: flex; flex-direction: column; align-items: center; transition: all 0.3s ease; z-index: 1000; }
-        .panel-toggle-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 10px 15px; width: 100%; transition: background-color 0.2s; }
-        .floating-panel.expanded .panel-toggle-btn { display: none; }
-        .panel-content { display: flex; flex-direction: column; gap: 5px; max-height: 0; overflow: hidden; padding: 0; transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out; width: 100%; }
-        .floating-panel.expanded .panel-content { max-height: 500px; padding: 10px; overflow-y: auto;}
-        .panel-content .collapse-btn { background: none; border: none; color: white; font-size: 20px; cursor: pointer; padding: 0 10px; margin-bottom: 5px; }
-        
-        .toggle-btn { display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #3f51b5; color: white; border: none; padding: 10px 15px; cursor: pointer; transition: background-color 0.2s, color 0.2s; width: 100%; font-size: 20px; }
-        .toggle-btn:hover { background-color: #7986cb; }
-        .toggle-btn.white-bg { background-color: #fff; color: #3f51b5; border: 1px solid #3f51b5; margin-bottom: 5px;}
-        .toggle-btn.white-bg:hover { background-color: #e0e0e0; }
-
-        .tools-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px 10px; width: 100%; padding: 5px 0 15px 0; box-sizing: border-box; justify-items: center; }
-        .tool-icon-btn { background: none; border: none; color: white; padding: 8px; cursor: pointer; transition: transform 0.2s, opacity 0.2s; display: flex; align-items: center; justify-content: center; opacity: 0.8; }
-        .tool-icon-btn:hover { opacity: 1; transform: scale(1.2); }
-        .tool-icon-btn .material-icons-outlined { font-size: 28px; }
-
-        .category-buttons { display: flex; flex-direction: column; width: 100%; }
-        .category-button { display: flex; align-items: center; justify-content: center; gap: 6px; background-color: #3f51b5; color: white; border: 1px solid #3f51b5; padding: 8px 12px; cursor: pointer; transition: background-color 0.2s, color 0.2s; text-align: center; font-size: 20px; }
-        .category-button.active { background-color: #fff; color: #3f51b5; }
-        .category-button:hover { background-color: #3f51b5; color: #fff; }
-        .zone-header.drag-over, .zone-content.drag-over { background-color: #e0e0e0; border: 2px solid #999; }
-        
-        #message-box { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #4CAF50; color: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 2000; display: none; transition: opacity 0.5s ease-in-out; }
-        .refresh-button { display: flex; position: fixed; top: 20px; right: 20px; background-color: #fff; color: #3f51b5; border: 2px solid #3f51b5; border-radius: 50%; width: 45px; height: 45px; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); transition: transform 0.2s ease; z-index: 1000; }
-        .refresh-button.loading { animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
-
-    <style id="dynamic-spreadsheet-styles"></style>
-    <style id="user-custom-colors"></style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>影音設備清冊</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="icon" type="image/x-icon" href="icon-r.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-r.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icon.jpg">
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .material-icons, .material-icons-outlined {
+      font-size: 20px;
+      line-height: 1;
+      vertical-align: middle;
+    }
+  </style>
 </head>
-<body>
+<body class="min-h-screen antialiased selection:bg-slate-800 selection:text-white pb-16">
+
+  <!-- 頂部控制列 -->
+  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
+    <div class="max-w-5xl mx-auto px-3 sm:px-6 py-3 flex flex-wrap sm:flex-nowrap items-center justify-center gap-2 sm:gap-3">
+      
+      <!-- 位置／分類／狀態三組（永遠同一行並隨螢幕寬彈性縮放） -->
+      <div class="flex flex-nowrap items-stretch gap-1.5 sm:gap-2.5 w-full sm:flex-1 min-w-0">
+        <!-- 位置組 -->
+        <div class="relative flex-1 min-w-0 inline-flex items-stretch rounded-lg shadow-2xs" data-filter-dropdown="location">
+          <button type="button" onclick="UIController.setGroupBy('location')" id="groupByLocationBtn"
+            class="shrink-0 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-800 bg-slate-800 text-white transition-colors cursor-pointer select-none whitespace-nowrap">
+            依位置
+          </button>
+          <button type="button" id="filterBtn_location" onclick="UIController.toggleFilterDropdown('location', event)" aria-haspopup="true" aria-expanded="false"
+            class="flex-1 min-w-0 inline-flex items-center justify-between gap-1 px-2 sm:px-2.5 py-1.5 bg-slate-100/90 hover:bg-slate-200/70 text-xs sm:text-sm font-medium text-slate-700 rounded-r-lg border border-slate-300/90 focus:outline-none focus:border-slate-500 transition-colors cursor-pointer select-none">
+            <span id="filterLabel_location" class="truncate">全部</span>
+            <span class="material-icons text-slate-400 shrink-0 transition-transform duration-150" id="filterArrow_location" style="font-size: 16px;">expand_more</span>
+          </button>
+          <div id="filterMenu_location" class="hidden absolute top-full left-0 mt-1.5 min-w-full w-48 sm:w-56 bg-white rounded-xl shadow-lg border border-slate-200/90 z-30 overflow-hidden"></div>
+        </div>
+
+        <!-- 分類組 -->
+        <div class="relative flex-1 min-w-0 inline-flex items-stretch rounded-lg shadow-2xs" data-filter-dropdown="category">
+          <button type="button" onclick="UIController.setGroupBy('category')" id="groupByCategoryBtn"
+            class="shrink-0 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-300/90 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer select-none whitespace-nowrap">
+            依分類
+          </button>
+          <button type="button" id="filterBtn_category" onclick="UIController.toggleFilterDropdown('category', event)" aria-haspopup="true" aria-expanded="false"
+            class="flex-1 min-w-0 inline-flex items-center justify-between gap-1 px-2 sm:px-2.5 py-1.5 bg-slate-100/90 hover:bg-slate-200/70 text-xs sm:text-sm font-medium text-slate-700 rounded-r-lg border border-slate-300/90 focus:outline-none focus:border-slate-500 transition-colors cursor-pointer select-none">
+            <span id="filterLabel_category" class="truncate">全部</span>
+            <span class="material-icons text-slate-400 shrink-0 transition-transform duration-150" id="filterArrow_category" style="font-size: 16px;">expand_more</span>
+          </button>
+          <div id="filterMenu_category" class="hidden absolute top-full left-0 mt-1.5 min-w-full w-44 sm:w-52 bg-white rounded-xl shadow-lg border border-slate-200/90 z-30 overflow-hidden"></div>
+        </div>
+
+        <!-- 狀態組 -->
+        <div class="relative flex-1 min-w-0 inline-flex items-stretch rounded-lg shadow-2xs" data-filter-dropdown="status">
+          <button type="button" onclick="UIController.setGroupBy('status')" id="groupByStatusBtn"
+            class="shrink-0 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-300/90 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer select-none whitespace-nowrap">
+            依狀態
+          </button>
+          <button type="button" id="filterBtn_status" onclick="UIController.toggleFilterDropdown('status', event)" aria-haspopup="true" aria-expanded="false"
+            class="flex-1 min-w-0 inline-flex items-center justify-between gap-1 px-2 sm:px-2.5 py-1.5 bg-slate-100/90 hover:bg-slate-200/70 text-xs sm:text-sm font-medium text-slate-700 rounded-r-lg border border-slate-300/90 focus:outline-none focus:border-slate-500 transition-colors cursor-pointer select-none">
+            <span id="filterLabel_status" class="truncate">全部</span>
+            <span class="material-icons text-slate-400 shrink-0 transition-transform duration-150" id="filterArrow_status" style="font-size: 16px;">expand_more</span>
+          </button>
+          <div id="filterMenu_status" class="hidden absolute top-full left-0 mt-1.5 min-w-full w-44 sm:w-52 bg-white rounded-xl shadow-lg border border-slate-200/90 z-30 overflow-hidden"></div>
+        </div>
+      </div>
+
+      <!-- 連線狀態 -->
+      <button type="button" id="syncStatusBtn" onclick="DataService.init(true)" title="點擊重新同步試算表資料"
+        class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-500 transition-colors cursor-pointer select-none">
+        <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="syncLabel">連線中</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 pt-5">
+
+    <!-- 錯誤提示列 -->
+    <div id="syncErrorBanner" class="hidden mb-4 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+      <div class="flex items-start gap-2">
+        <span class="material-icons text-rose-500 shrink-0 mt-0.5" style="font-size: 18px;">error_outline</span>
+        <div>
+          <p class="font-semibold">無法讀取試算表（目前顯示內建範例資料）</p>
+          <p id="syncErrorDetail" class="text-rose-700/90 mt-0.5 text-xs whitespace-pre-line"></p>
+        </div>
+      </div>
+      <button type="button" onclick="DataService.hideErrorBanner()"
+        class="px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-100 text-xs cursor-pointer shrink-0 self-end sm:self-center">
+        關閉
+      </button>
+    </div>
     
-    <div id="zones-container"></div>
-    
-    <button class="refresh-button" id="refresh-button" style="display: none;">
-        <span class="material-icons">refresh</span>
-    </button>
-    
-    <div class="floating-panel">
-        <button class="panel-toggle-btn">檢視 ▲</button>
-        <div class="panel-content">
-            <button class="collapse-btn">收合 ▼</button>
-            
-            <div class="tools-grid">
-                <button class="tool-icon-btn" id="add-task-btn" title="新增任務編組">
-                    <span class="material-icons-outlined">add_task</span>
-                </button>
-                <button class="tool-icon-btn" id="open-color-panel-btn" title="改色標註">
-                    <span class="material-icons-outlined">palette</span>
-                </button>
-                <button class="tool-icon-btn" id="screenshot-btn" title="畫面截圖">
-                    <span class="material-icons-outlined">image</span>
-                </button>
-                <button class="tool-icon-btn" id="help-btn" title="系統說明">
-                    <span class="material-icons-outlined">help_outline</span>
-                </button>
-            </div>
+    <div id="hierarchyContainer" class="space-y-4"></div>
 
-            <button class="category-button" id="toggle-all-btn">
-                <span class="material-icons-outlined">unfold_more</span><span>全部展開</span>
-            </button>
-
-            <div class="category-buttons" id="category-buttons-container"></div>
-        </div>
+    <div id="emptyState" class="hidden py-16 text-center bg-white rounded-2xl border border-slate-200/80">
+      <div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2.5">
+        <span class="material-icons">filter_alt_off</span>
+      </div>
+      <p class="text-sm font-medium text-slate-700">找不到符合篩選條件的設備</p>
+      <button type="button" onclick="UIController.resetFilters()" class="mt-3 px-3.5 py-1.5 text-xs font-medium bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+        重設篩選
+      </button>
     </div>
+  </main>
 
-    <div id="object-info-panel" class="object-panel">
-        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
-            <h4 id="panel-title" style="flex-shrink: 0; margin-top: 0;"></h4>
-            <div id="panel-content" class="panel-body"></div>
+  <!-- 詳情面板 -->
+  <div id="detailModal" onclick="UIController.closeDetailModal()" class="hidden fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 transition-opacity">
+    <div onclick="event.stopPropagation()" class="bg-white w-full max-w-md rounded-2xl shadow-xl border border-slate-200/80 overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div class="flex items-center gap-3 min-w-0">
+          <div id="modalIconBox" class="w-10 h-10 rounded-xl bg-white border border-slate-200/80 text-slate-700 flex items-center justify-center shrink-0 shadow-2xs"></div>
+          <div class="min-w-0">
+            <h2 id="modalAlias" class="text-base font-semibold text-slate-900 truncate">設備代稱</h2>
+            <p id="modalItemName" class="text-xs text-slate-500 truncate">正式品項</p>
+          </div>
         </div>
-        
-        <div id="raised-action-bar-container" class="action-bar-container" style="flex-shrink: 0;">
-            <div class="fine-line-raised"></div>
-            <div id="panel-action-bar">
-                <div id="primary-action-slot" class="action-slot primary-slot">
-                    <button id="change-btn" class="action-btn">更改</button>
-                    <button id="confirm-btn" class="action-btn" style="display: none;">確定</button>
-                </div>
-                <div id="cancel-action-slot" class="action-slot cancel-slot">
-                    <button id="close-btn-inline" class="action-btn">&times;</button>
-                    <button id="cancel-btn-inline" class="action-btn" style="display: none;">取消</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="panel-actions" style="flex-shrink: 0;">
-            <div id="property-area" class="property-area"></div>
-        </div>
+        <button type="button" onclick="UIController.closeDetailModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer">
+          <span class="material-icons" style="font-size: 18px;">close</span>
+        </button>
+      </div>
+      <div id="modalBody" class="p-5 space-y-3.5 text-xs sm:text-sm"></div>
     </div>
-
-    <div id="color-settings-panel" class="color-panel">
-        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
-            <h4 style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 0;">
-                <span class="material-icons-outlined">palette</span> 改色標註
-            </h4>
-            <p style="font-size: 14px; color: #666; margin-bottom: 15px; flex-shrink: 0;">在此設定的顏色將同步儲存至雲端，所有裝置皆可看見。</p>
-            <div id="color-legend-content" class="panel-body" style="display: flex; flex-direction: column; gap: 10px;">
-            </div>
-        </div>
-        
-        <div class="action-bar-container" style="flex-shrink: 0;">
-            <div class="fine-line-raised"></div>
-            <div class="panel-action-bar-common" style="width: 100%; justify-content: center; gap: 20px;">
-                <button id="apply-colors-btn">套用</button>
-                <button id="cancel-colors-btn">取消</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="help-panel" class="color-panel">
-        <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
-            <h4 style="display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 0;">
-                <span class="material-icons-outlined">help_outline</span> 使用說明
-            </h4>
-            <div class="panel-body" style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 15px; background: transparent;">
-                
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff; flex-shrink: 0;">
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-                        <div style="flex: 0 0 auto; width: 140px; background-color: #3f51b5; color: white; border-radius: 8px; padding: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); pointer-events: none; user-select: none;">
-                            <div style="text-align: center; margin-bottom: 5px; font-size: 13px; opacity: 0.9;">收合 ▼</div>
-                            <div class="tools-grid" style="padding: 0 0 10px 0; gap: 8px;">
-                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">add_task</span></div>
-                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">palette</span></div>
-                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">image</span></div>
-                                <div style="display:flex; justify-content:center;"><span class="material-icons-outlined" style="font-size:24px;">help_outline</span></div>
-                            </div>
-                            <button class="category-button" style="width:100%; font-size: 14px; padding: 6px; margin-bottom: 6px; background-color: #3f51b5; color: white; border: 1px solid white;">
-                                <span class="material-icons-outlined" style="font-size:16px;">unfold_more</span> 全部展開
-                            </button>
-                            <div style="display:flex; flex-direction: column;">
-                                <button class="category-button active" style="width:100%; font-size: 14px; padding: 6px; background-color: #fff; color: #3f51b5; border: 1px solid #fff;">
-                                    <span class="material-icons-outlined" style="font-size:16px;">visibility</span> 顯示此類
-                                </button>
-                                <button class="category-button" style="width:100%; font-size: 14px; padding: 6px; background-color: #3f51b5; color: white; border: 1px solid #3f51b5;">
-                                    <span class="material-icons-outlined" style="font-size:16px;">visibility_off</span> 隱藏此類
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div style="flex: 1; min-width: 200px; font-size: 14px; color: #444; line-height: 1.8;">
-                            <h5 style="margin-top: 0; margin-bottom: 10px; color: #3f51b5; font-size: 16px;">導航區，就像遙控器</h5>
-                            <ul style="margin: 0; padding-left: 20px;">
-                                <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">add_task</span> <b>建立任務編組</b>：建立臨時任務區塊，可以事後解散。</li>
-                                <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">palette</span> <b>改色標註</b>：修改狀態顏色、建立專屬自訂狀態。</li>
-                                <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">image</span> <b>畫面截圖</b>：一鍵將當前配置無縫下載成圖片。</li>
-                                <li style="margin-top: 8px;"><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">visibility_off</span> <b>分類顯示／隱藏過濾器</b>：<br>點按面板最下方的分類名稱，可以快速<b>隱藏/顯示</b>特定類別的器材，讓畫面保持乾淨。</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: #fff; flex-shrink: 0;">
-                    <h5 style="margin-top: 0; margin-bottom: 12px; color: #3f51b5; font-size: 16px;">主畫面，區塊與器材卡片</h5>
-                    
-                    <div class="zone task-zone expanded" style="margin-bottom: 15px; box-shadow: 0 2px 8px rgba(63,81,181,0.1); pointer-events: none; border: 2px dashed #3f51b5;">
-                        <div class="zone-header highlighted" style="cursor: default; background-color: #fff9c4;">
-                            <h3 style="color: #3f51b5;">
-                                <span class="material-icons-outlined" style="margin-right:6px; font-size:22px;">assignment</span>
-                                <span class="zone-name" style="border-bottom: 1px dashed #3f51b5;">區塊／任務編組（可點按改名稱）</span>
-                                <span class="zone-count">[2項]</span>
-                            </h3>
-                            <div style="display: flex; align-items: center;">
-                                <label class="switch"><input type="checkbox" checked disabled><span class="slider"></span></label>
-                                <span class="zone-toggle-icon" style="transform: rotate(180deg);">▼</span>
-                            </div>
-                        </div>
-                        <div class="zone-content" style="max-height: none; padding: 12px; display: flex; gap: 10px; flex-wrap: wrap; background-color: #fff;">
-                            <div class="object" style="cursor: grab; width: max-content; padding: 8px 12px; pointer-events: none; background-color: #fafafa; border: 1px solid #ddd; border-radius: 6px;">
-                                <span class="material-icons-outlined object-icon-font">mic</span><span style="font-size: 16px;">器材卡片</span>
-                            </div>
-                            <div class="object" style="cursor: grab; width: max-content; padding: 8px 12px; pointer-events: none; background-color: #f44336; color: white; border: 1px solid #f44336; border-radius: 6px;">
-                                <span class="material-icons-outlined object-icon-font" style="color: white;">warning</span><span style="font-size: 16px; color: white;">損壞器材</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #444; line-height: 1.8;">
-                        <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#3f51b5;">add_task</span> <b>建立任務編組</b>：藍色虛線框為「任務編組」。點按虛線標題可<b>更名</b>；</li>
-                        <li><span class="material-icons-outlined" style="font-size:16px; vertical-align:text-bottom; color:#f44336;">delete</span> <b>解散任務編組</b>：點按垃圾桶可解散任務，內部器材會自動歸位。</li>
-                        <li><label class="switch" style="transform: scale(0.6); margin: -4px -10px -4px -6px; vertical-align: middle;"><input type="checkbox" checked disabled><span class="slider"></span></label> <b>標記重點區塊</b>：點按標題右側的切換撥鈕，可以標註區塊，所有用戶同步能看見標題列變色。</li>
-                        <li><b>▲ 展開／收合區塊</b>：點按▼／▲開合區塊檢視或隱藏詳細內容。</li>
-                        <li><b>拖曳與調度</b>：按住白色/彩色的器材卡片，即可<b>拖曳</b>分派至不同區塊內。</li>
-                        <li><b>屬性編輯</b>：<b>點按</b>器材卡片可開啟編輯面板，為其賦予「臨時出勤狀態」或「實體歸位」。</li>
-                    </ul>
-                </div>
-
-            </div>
-        </div>
-        
-        <div class="action-bar-container" style="flex-shrink: 0;">
-            <div class="fine-line-raised"></div>
-            <div class="panel-action-bar-common" style="width: 100%; justify-content: center; gap: 20px;">
-                <button id="close-help-btn" style="background-color: #6c757d; color: white; border: none; padding: 10px 32px; font-size: 16px; border-radius: 6px; cursor: pointer; letter-spacing: 2px;">關閉</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 🌟 補回遺失的系統提示區塊容器 -->
-    <div id="message-box"></div>
-
-    <div id="custom-confirm-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2999;"></div>
-    <div id="custom-confirm-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 3000; text-align: center; min-width: 280px;">
-        <h4 id="confirm-msg" style="margin-top: 0; margin-bottom: 20px; color: #333; font-size: 18px; font-weight: normal; line-height: 1.5;">確定要執行嗎？</h4>
-        <div style="display: flex; justify-content: center; gap: 15px;">
-            <button id="confirm-no-btn" style="background-color: #6c757d; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">取消</button>
-            <button id="confirm-yes-btn" style="background-color: #f44336; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">確定</button>
-        </div>
-    </div>
-
-    <div id="custom-prompt-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2999;"></div>
-    <div id="custom-prompt-modal" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #fff; padding: 25px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 3000; text-align: center; min-width: 300px;">
-        <h4 id="prompt-msg" style="margin-top: 0; margin-bottom: 15px; color: #333; font-size: 18px; font-weight: normal; line-height: 1.5;">請輸入名稱：</h4>
-        <input type="text" id="prompt-input" style="width: 100%; padding: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; text-align: center;">
-        <div style="display: flex; justify-content: center; gap: 15px;">
-            <button id="prompt-cancel-btn" style="background-color: #6c757d; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">取消</button>
-            <button id="prompt-confirm-btn" style="background-color: #3f51b5; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-size: 16px;">確定</button>
-        </div>
-    </div>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-          apiKey: "AIzaSyDqJ2LdvLiw6nIfelz2zBztegSfBDTfisg",
-          authDomain: "dragmanage-a071f.firebaseapp.com",
-          projectId: "dragmanage-a071f",
-          storageBucket: "dragmanage-a071f.firebasestorage.app",
-          messagingSenderId: "872170643684",
-          appId: "1:872170643684:web:38d0a30118e82c33a8ccf1",
-          measurementId: "G-5D3JYSWNH1"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        const globalAppId = 'Production-AV-System';
-
-        let currentUser = null;
-        let firestoreTasks = [];
-        let firestoreStatuses = []; 
-        let firestoreHighlights = []; 
-        
-        let firestoreZoneAssignments = {};   
-        let firestoreStatusAssignments = {}; 
-        
-        let listenersInitialized = false; 
-
-        const initAuth = async () => {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    try {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } catch (e) {
-                        console.warn("Token 驗證失敗，改用匿名登入...", e);
-                        await signInAnonymously(auth);
-                    }
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Firebase 連線初始化失敗:", error);
-            }
-        };
-        initAuth();
-
-        const startApp = () => {
-            const API_KEY = 'AIzaSyDrKPFmjLr2-QmF9vf7nFqkC75z0M2I_B8';
-            const SPREADSHEET_ID = '1UGZQa5FQY-3CaTtC7-8LfJz70sDX1UbkbVDAGciEZjQ';
-            const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwwyVCWlyYNzPzTYsuALi8OT80D_ilTnOfgS0Mw-mR5Z9fP-lRUBJPAW0AgHJrX6DNm/exec'; 
-            
-            const zonesContainer = document.getElementById('zones-container');
-            const categoryButtonsContainer = document.getElementById('category-buttons-container');
-            const toggleAllBtn = document.getElementById('toggle-all-btn');
-            const floatingPanel = document.querySelector('.floating-panel');
-            const panelToggleBtn = document.querySelector('.panel-toggle-btn');
-            const collapseBtn = document.querySelector('.panel-content .collapse-btn');
-            
-            const objectInfoPanel = document.getElementById('object-info-panel');
-            const objectPanelTitle = document.getElementById('panel-title');
-            const objectPanelContent = document.getElementById('panel-content');
-            
-            const changeBtn = document.getElementById('change-btn');
-            const closeBtnInline = document.getElementById('close-btn-inline');
-            const confirmBtn = document.getElementById('confirm-btn');
-            const cancelBtnInline = document.getElementById('cancel-btn-inline'); 
-            
-            const messageBox = document.getElementById('message-box');
-            const refreshButton = document.getElementById('refresh-button');
-            const propertyArea = document.getElementById('property-area');
-
-            const openColorPanelBtn = document.getElementById('open-color-panel-btn');
-            const colorSettingsPanel = document.getElementById('color-settings-panel');
-            const cancelColorsBtn = document.getElementById('cancel-colors-btn');
-            const applyColorsBtn = document.getElementById('apply-colors-btn');
-            const colorLegendContent = document.getElementById('color-legend-content');
-            const screenshotBtn = document.getElementById('screenshot-btn'); 
-            
-            const helpBtn = document.getElementById('help-btn'); 
-            const helpPanel = document.getElementById('help-panel');
-            const closeHelpBtn = document.getElementById('close-help-btn');
-
-            let draggedItem = null;
-            let zones = []; 
-            let allObjects = [];
-            let statusOptions = [];
-            let autoRefreshInterval = null;
-
-            let systemConfig = {};
-            let dataHeaders = [];
-
-            let customColors = {};
-            let originalCustomColors = {};
-
-            let globalDynamicCategories = new Set();
-            let globalDynamicZones = new Set();
-            let globalDynamicStatusOptions = new Set();
-            let globalAllParsedObjects = [];
-
-            let sysColId, sysColName, sysColSubName, sysColCategory, sysColZone, sysColStatus, sysColIcon;
-
-            const LOCAL_STORAGE_ZONE_KEY = 'zoneState';
-            const LOCAL_STORAGE_CATEGORY_KEY = 'categoryState';
-            const LOCAL_STORAGE_PANEL_KEY = 'panelState';
-            
-            onAuthStateChanged(auth, (user) => {
-                currentUser = user;
-                if (user && !listenersInitialized) setupFirestoreListeners();
-            });
-
-            function setupFirestoreListeners() {
-                listenersInitialized = true;
-                const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
-                const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
-                const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
-                const zoneAssignmentsRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                const statusAssignmentsRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
-
-                onSnapshot(colorsDocRef, (docSnap) => {
-                    if (docSnap.exists() && Object.keys(docSnap.data()).length > 0) {
-                        customColors = docSnap.data();
-                        applyCustomColors();
-                        if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
-                    }
-                }, (error) => console.error("配色庫同步錯誤:", error));
-
-                onSnapshot(tasksDocRef, (docSnap) => {
-                    if (docSnap.exists()) firestoreTasks = docSnap.data().list || [];
-                    else firestoreTasks = [];
-                    refreshFrontendView();
-                });
-
-                onSnapshot(statusesDocRef, (docSnap) => {
-                    if (docSnap.exists()) firestoreStatuses = docSnap.data().list || [];
-                    else firestoreStatuses = [];
-                    refreshFrontendView();
-                    if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
-                });
-
-                onSnapshot(highlightsDocRef, (docSnap) => {
-                    if (docSnap.exists()) firestoreHighlights = docSnap.data().list || [];
-                    else firestoreHighlights = [];
-                    applyHighlightsFromFirestore();
-                });
-
-                onSnapshot(zoneAssignmentsRef, (docSnap) => {
-                    if (docSnap.exists()) firestoreZoneAssignments = docSnap.data().map || {};
-                    else firestoreZoneAssignments = {};
-                    refreshFrontendView();
-                });
-
-                onSnapshot(statusAssignmentsRef, (docSnap) => {
-                    if (docSnap.exists()) firestoreStatusAssignments = docSnap.data().map || {};
-                    else firestoreStatusAssignments = {};
-                    refreshFrontendView();
-                });
-            }
-
-            function applyHighlightsFromFirestore() {
-                zones.forEach(zone => {
-                    const zName = zone.querySelector('.zone-name').getAttribute('data-val');
-                    const header = zone.querySelector('.zone-header');
-                    const toggle = zone.querySelector('.zone-highlight-toggle');
-                    if (firestoreHighlights.includes(zName)) {
-                        if (header) header.classList.add('highlighted');
-                        if (toggle) toggle.checked = true;
-                    } else {
-                        if (header) header.classList.remove('highlighted');
-                        if (toggle) toggle.checked = false;
-                    }
-                });
-            }
-
-            function showConfirm(message, onConfirm) {
-                const overlay = document.getElementById('custom-confirm-overlay');
-                const modal = document.getElementById('custom-confirm-modal');
-                const msgEl = document.getElementById('confirm-msg');
-                const yesBtn = document.getElementById('confirm-yes-btn');
-                const noBtn = document.getElementById('confirm-no-btn');
-                
-                msgEl.innerHTML = message.replace(/\n/g, '<br>');
-                overlay.style.display = 'block';
-                modal.style.display = 'block';
-                
-                const cleanup = () => {
-                    overlay.style.display = 'none';
-                    modal.style.display = 'none';
-                };
-                
-                const newYesBtn = yesBtn.cloneNode(true);
-                const newNoBtn = noBtn.cloneNode(true);
-                yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
-                noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-                
-                newYesBtn.addEventListener('click', () => { cleanup(); onConfirm(); });
-                newNoBtn.addEventListener('click', cleanup);
-            }
-
-            function showPrompt(message, defaultValue, onConfirm) {
-                const overlay = document.getElementById('custom-prompt-overlay');
-                const modal = document.getElementById('custom-prompt-modal');
-                const msgEl = document.getElementById('prompt-msg');
-                const inputEl = document.getElementById('prompt-input');
-                const yesBtn = document.getElementById('prompt-confirm-btn');
-                const noBtn = document.getElementById('prompt-cancel-btn');
-
-                msgEl.innerHTML = message.replace(/\n/g, '<br>');
-                
-                const newYesBtn = yesBtn.cloneNode(true);
-                const newNoBtn = noBtn.cloneNode(true);
-                yesBtn.parentNode.replaceChild(newYesBtn, yesBtn);
-                noBtn.parentNode.replaceChild(newNoBtn, noBtn);
-                const newInputEl = inputEl.cloneNode(true);
-                inputEl.parentNode.replaceChild(newInputEl, inputEl);
-
-                newInputEl.value = defaultValue || '';
-                overlay.style.display = 'block';
-                modal.style.display = 'block';
-                
-                newInputEl.focus();
-                newInputEl.select();
-
-                const cleanup = () => {
-                    overlay.style.display = 'none';
-                    modal.style.display = 'none';
-                };
-
-                newInputEl.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') { cleanup(); onConfirm(newInputEl.value); }
-                    if (e.key === 'Escape') cleanup();
-                });
-
-                newYesBtn.addEventListener('click', () => { cleanup(); onConfirm(newInputEl.value); });
-                newNoBtn.addEventListener('click', cleanup);
-            }
-
-            function showMessage(message, color = 'green') {
-                messageBox.textContent = message; 
-                messageBox.style.backgroundColor = color;
-                messageBox.style.display = 'block'; 
-                messageBox.style.opacity = 1;
-                setTimeout(() => {
-                    messageBox.style.opacity = 0;
-                    setTimeout(() => messageBox.style.display = 'none', 500);
-                }, 3000);
-            }
-
-            function getContrastYIQ(hexcolor){
-                if (!hexcolor) return 'black';
-                hexcolor = hexcolor.replace("#", "");
-                if (hexcolor.length === 3) hexcolor = hexcolor.split('').map(c => c + c).join('');
-                var r = parseInt(hexcolor.substr(0,2),16);
-                var g = parseInt(hexcolor.substr(2,2),16);
-                var b = parseInt(hexcolor.substr(4,2),16);
-                var yiq = ((r*299)+(g*587)+(b*114))/1000;
-                return (yiq >= 128) ? 'black' : 'white';
-            }
-
-            function applyCustomColors() {
-                let cssString = '';
-                for (const [status, color] of Object.entries(customColors)) {
-                    if (status === 'ZONE_HIGHLIGHT') continue; 
-                    if (color && color.trim() !== '') {
-                        const textColor = getContrastYIQ(color);
-                        cssString += `
-                            .object[data-status="${status}"] { background-color: ${color} !important; color: ${textColor} !important; border-color: ${color} !important; }
-                            .object[data-status="${status}"] span { color: ${textColor} !important; }
-                            .status-button[data-status="${status}"].active { background-color: ${color} !important; color: ${textColor} !important; border-color: ${color} !important; }
-                        `;
-                    }
-                }
-                
-                if (customColors['ZONE_HIGHLIGHT'] && customColors['ZONE_HIGHLIGHT'].trim() !== '') {
-                    const zhColor = customColors['ZONE_HIGHLIGHT'];
-                    const zhTextColor = getContrastYIQ(zhColor);
-                    cssString += `
-                        .zone-header.highlighted { background-color: ${zhColor} !important; color: ${zhTextColor} !important; }
-                        .zone-header.highlighted h3, .zone-header.highlighted .zone-name { color: ${zhTextColor} !important; }
-                        .zone-header.highlighted .zone-count { color: ${zhTextColor} !important; opacity: 0.85; }
-                        .zone-header.highlighted .zone-toggle-icon { color: ${zhTextColor} !important; }
-                    `;
-                }
-                document.getElementById('user-custom-colors').textContent = cssString;
-            }
-
-            function updateZoneCounts() {
-                zones.forEach(zone => {
-                    const content = zone.querySelector('.zone-content');
-                    const visibleObjectsCount = content.querySelectorAll('.object:not(.hidden)').length;
-                    const countSpan = zone.querySelector('.zone-count');
-                    if (countSpan) countSpan.textContent = `[${visibleObjectsCount}項]`;
-                });
-            }
-
-            function startAutoRefresh() {
-                if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-                autoRefreshInterval = setInterval(fetchSpreadsheetData, 5000);
-            }
-
-            function stopAutoRefresh() {
-                if (autoRefreshInterval) {
-                    clearInterval(autoRefreshInterval);
-                    autoRefreshInterval = null;
-                }
-            }
-
-            function saveState() {
-                const expandedZones = Array.from(zonesContainer.querySelectorAll('.zone.expanded'))
-                    .map(zone => {
-                        const nameEl = zone.querySelector('.zone-name');
-                        return nameEl ? nameEl.getAttribute('data-val') : null;
-                    })
-                    .filter(val => val !== null);
-                localStorage.setItem(LOCAL_STORAGE_ZONE_KEY, JSON.stringify(expandedZones));
-
-                const activeCategories = Array.from(document.querySelectorAll('#category-buttons-container .category-button.active')).map(btn => btn.getAttribute('data-category'));
-                localStorage.setItem(LOCAL_STORAGE_CATEGORY_KEY, JSON.stringify(activeCategories));
-                
-                localStorage.setItem(LOCAL_STORAGE_PANEL_KEY, JSON.stringify({
-                    expanded: floatingPanel.classList.contains('expanded'),
-                    openPanelObjectId: document.querySelector('.object[data-panel-open="true"]')?.getAttribute('data-id') || null,
-                    propertyAreaVisible: propertyArea.classList.contains('visible')
-                }));
-            }
-
-            function loadState() {
-                const savedZones = localStorage.getItem(LOCAL_STORAGE_ZONE_KEY);
-                if (savedZones) {
-                    const expandedDataVals = JSON.parse(savedZones);
-                    zones.forEach(zone => {
-                        const zName = zone.querySelector('.zone-name').getAttribute('data-val');
-                        if (expandedDataVals.includes(zName)) {
-                            zone.classList.add('expanded');
-                        } else {
-                            zone.classList.remove('expanded');
-                        }
-                    });
-                }
-                
-                const savedCategories = localStorage.getItem(LOCAL_STORAGE_CATEGORY_KEY);
-                if (savedCategories) {
-                    const activeCategories = JSON.parse(savedCategories);
-                    document.querySelectorAll('#category-buttons-container .category-button').forEach(btn => {
-                        if (activeCategories.includes(btn.getAttribute('data-category'))) {
-                            btn.classList.add('active');
-                        } else {
-                            btn.classList.remove('active');
-                        }
-                        const iconSpan = btn.querySelector('.material-icons-outlined');
-                        if (iconSpan) {
-                            iconSpan.textContent = btn.classList.contains('active') ? 'visibility' : 'visibility_off';
-                        }
-                    });
-                }
-                filterObjects();
-
-                const savedPanelState = localStorage.getItem(LOCAL_STORAGE_PANEL_KEY);
-                if (savedPanelState) {
-                    const state = JSON.parse(savedPanelState);
-                    if (state.expanded) floatingPanel.classList.add('expanded');
-                    else floatingPanel.classList.remove('expanded');
-                    
-                    if (state.openPanelObjectId) {
-                        setTimeout(() => {
-                            const object = document.querySelector(`.object[data-id="${state.openPanelObjectId}"]`);
-                            if (object) {
-                                object.click();
-                                if (state.propertyAreaVisible) {
-                                    changeBtn.style.display = 'none'; closeBtnInline.style.display = 'none';
-                                    confirmBtn.style.display = 'block'; cancelBtnInline.style.display = 'block'; 
-                                    propertyArea.classList.add('visible');
-                                }
-                            }
-                        }, 100);
-                    }
-                }
-            }
-
-            function refreshFrontendView() {
-                let currentZones = new Set();
-                firestoreTasks.forEach(t => currentZones.add(t));
-                globalDynamicZones.forEach(z => currentZones.add(z));
-                
-                let currentStatuses = new Set(globalDynamicStatusOptions);
-                firestoreStatuses.forEach(s => currentStatuses.add(s));
-                statusOptions = Array.from(currentStatuses);
-
-                globalAllParsedObjects.forEach(obj => {
-                    const uid = obj._uid;
-                    obj._zone = firestoreZoneAssignments[uid] || obj._originalZone;
-                    obj._stat = firestoreStatusAssignments[uid] || obj._originalStat;
-                    obj[sysColZone] = obj._zone;
-                    obj[sysColStatus] = obj._stat;
-                });
-
-                zonesContainer.innerHTML = '';
-                allObjects = [];
-                
-                renderZones(Array.from(currentZones));
-                renderCategories(Array.from(globalDynamicCategories));
-                renderObjects(globalAllParsedObjects);
-                loadState();
-                
-                applyHighlightsFromFirestore();
-            }
-
-            // 🌟 將「新增任務」的等待鎖解除，實作樂觀渲染 (Fire and Forget)
-            document.getElementById('add-task-btn').addEventListener('click', () => {
-                if (!currentUser) return showMessage("尚未連線至同步資料庫，請稍候...", "red");
-
-                let baseName = "未命名";
-                let finalName = `[任務]${baseName}`;
-                let counter = 1;
-                while(firestoreTasks.includes(finalName) || globalDynamicZones.has(finalName)) {
-                    finalName = `[任務]${baseName}(${counter})`;
-                    counter++;
-                }
-                
-                firestoreTasks.unshift(finalName); 
-                
-                let expandedZones = JSON.parse(localStorage.getItem(LOCAL_STORAGE_ZONE_KEY) || '[]');
-                if (!expandedZones.includes(finalName)) {
-                    expandedZones.push(finalName);
-                    localStorage.setItem(LOCAL_STORAGE_ZONE_KEY, JSON.stringify(expandedZones));
-                }
-
-                refreshFrontendView();
-                
-                setTimeout(() => {
-                    const firstTaskNameSpan = document.querySelector('.task-zone .editable-task-name');
-                    if(firstTaskNameSpan) {
-                        firstTaskNameSpan.focus();
-                        const range = document.createRange();
-                        range.selectNodeContents(firstTaskNameSpan);
-                        const sel = window.getSelection();
-                        sel.removeAllRanges();
-                        sel.addRange(range);
-                    }
-                }, 50);
-
-                const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error("任務建立失敗", e));
-            });
-
-            screenshotBtn.addEventListener('click', async () => {
-                try {
-                    showMessage("正在產生截圖，請稍候...", "#ff9800");
-                    floatingPanel.style.display = 'none';
-                    refreshButton.style.display = 'none';
-                    messageBox.style.display = 'none';
-
-                    await new Promise(resolve => setTimeout(resolve, 150));
-
-                    const canvas = await html2canvas(document.body, {
-                        useCORS: true,     
-                        scale: 2,          
-                        backgroundColor: '#f4f7f9' 
-                    });
-
-                    floatingPanel.style.display = 'flex';
-                    refreshButton.style.display = 'none'; 
-
-                    const imgData = canvas.toDataURL('image/png');
-                    const link = document.createElement('a');
-                    const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
-                    link.download = `影音器材調度_${dateStr}.png`;
-                    link.href = imgData;
-                    link.click();
-
-                    showMessage("截圖下載完成！", "green");
-                } catch (error) {
-                    console.error("截圖失敗:", error);
-                    floatingPanel.style.display = 'flex';
-                    refreshButton.style.display = 'none';
-                    showMessage("截圖產生失敗", "red");
-                }
-            });
-
-            helpBtn.addEventListener('click', () => {
-                helpPanel.classList.add('visible');
-                floatingPanel.classList.remove('expanded');
-                stopAutoRefresh();
-            });
-            closeHelpBtn.addEventListener('click', () => {
-                helpPanel.classList.remove('visible');
-                startAutoRefresh();
-            });
-
-            async function fetchSpreadsheetData() {
-                refreshButton.classList.add('loading'); 
-                
-                try {
-                    const configUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/前端定義!A:Z?key=${API_KEY}`;
-                    const objectsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/總表!A:Z?key=${API_KEY}`;
-                    const colorsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/配色庫!A2:C?key=${API_KEY}`;
-                    
-                    const [configRes, objectsRes, colorsRes] = await Promise.all([ 
-                        fetch(configUrl), 
-                        fetch(objectsUrl),
-                        fetch(colorsUrl).then(res => res.ok ? res : null).catch(() => null)
-                    ]);
-                    
-                    const configData = await configRes.json();
-                    const objectsData = await objectsRes.json();
-
-                    let legacySheetColors = {};
-                    if (colorsRes) {
-                        const colorsData = await colorsRes.json();
-                        if (colorsData.values) {
-                            colorsData.values.forEach(row => {
-                                if (row[0] && row[2]) legacySheetColors[row[0].trim()] = row[2].trim();
-                            });
-                        }
-                    }
-
-                    if (Object.keys(customColors).length === 0 && Object.keys(legacySheetColors).length > 0) {
-                        customColors = legacySheetColors;
-                        applyCustomColors();
-                        if (currentUser) {
-                            const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
-                            setDoc(colorsDocRef, customColors).catch(e => console.warn("配色遷移寫入失敗", e));
-                        }
-                    }
-
-                    systemConfig = {};
-                    let definedCategories = [];
-                    let definedZones = [];
-                    let definedStatuses = [];
-
-                    if (configData.values && configData.values.length > 1) {
-                        configData.values.forEach((row, index) => {
-                            if (index === 0) return; 
-                            if (row[0]) systemConfig[row[0].trim()] = (row[1] || '').trim(); 
-                            if (row[2]) definedCategories.push(row[2].trim());         
-                            if (row[3]) definedZones.push(row[3].trim());              
-                            if (row[4]) definedStatuses.push(row[4].trim());          
-                        });
-                    }
-
-                    if (systemConfig['SYS_APP_TITLE']) {
-                        document.title = systemConfig['SYS_APP_TITLE'];
-                    }
-                    if (systemConfig['SYS_CUSTOM_CSS']) {
-                        document.getElementById('dynamic-spreadsheet-styles').textContent = systemConfig['SYS_CUSTOM_CSS'];
-                    }
-
-                    dataHeaders = (objectsData.values[0] || []).map(h => typeof h === 'string' ? h.trim() : h);
-                    const rowsData = objectsData.values.slice(1);
-
-                    sysColId = systemConfig['SYS_COL_ID'] || dataHeaders[0] || 'ID';
-                    sysColCategory = systemConfig['SYS_COL_CATEGORY'] || dataHeaders[1] || '類別';
-                    sysColZone = systemConfig['SYS_COL_ZONE'] || dataHeaders[2] || '區域';    
-                    sysColStatus = systemConfig['SYS_COL_STATUS'] || dataHeaders[3] || '狀態';
-                    sysColName = systemConfig['SYS_COL_NAME'] || dataHeaders[5] || '代稱';    
-                    sysColIcon = systemConfig['SYS_COL_ICON'] || dataHeaders[6] || '圖標';    
-                    sysColSubName = systemConfig['SYS_COL_SUB_NAME'] || ''; 
-
-                    globalDynamicCategories.clear();
-                    globalDynamicZones.clear();
-                    globalDynamicStatusOptions.clear();
-                    globalAllParsedObjects = [];
-
-                    definedCategories.forEach(c => globalDynamicCategories.add(c));
-                    definedZones.forEach(z => globalDynamicZones.add(z));
-                    definedStatuses.forEach(s => globalDynamicStatusOptions.add(s));
-
-                    const generatedUids = new Set();
-
-                    rowsData.forEach((row, index) => {
-                        const objData = {};
-                        dataHeaders.forEach((header, i) => {
-                            objData[header] = row[i] ? String(row[i]).trim() : '';
-                        });
-                        
-                        if (!objData[sysColId] && !objData[sysColName]) return;
-                        
-                        const cat = objData[sysColCategory] || '未分類';
-                        const zone = objData[sysColZone] || '未分類區域';
-                        const stat = objData[sysColStatus] || '正常';
-                        
-                        let rawUid = objData[sysColId] ? String(objData[sysColId]).trim() : '';
-                        if (!rawUid || generatedUids.has(rawUid)) {
-                            let fallbackName = objData[sysColName] ? String(objData[sysColName]).trim() : 'ITEM';
-                            rawUid = `${rawUid || fallbackName}_R${index + 2}`;
-                        }
-                        generatedUids.add(rawUid);
-                        
-                        objData._uid = rawUid;
-                        objData._cat = cat;
-                        objData._originalZone = zone;
-                        objData._originalStat = stat;
-                        objData._rowIndex = index + 2;
-                        
-                        globalAllParsedObjects.push(objData);
-                    });
-
-                    refreshFrontendView();
-
-                } catch (error) {
-                    console.error("無法載入試算表資料:", error);
-                    showMessage("載入資料失敗。請檢查您的API金鑰或試算表配置。", 'red');
-                } finally {
-                    refreshButton.classList.remove('loading'); 
-                }
-            }
-
-            function renderZones(zonesList) {
-                if (!zonesList || zonesList.length === 0) return;
-                
-                const taskZones = zonesList.filter(z => z.startsWith('[任務]'));
-                const physicalZones = zonesList.filter(z => !z.startsWith('[任務]'));
-                const sortedZonesList = [...taskZones, ...physicalZones];
-
-                sortedZonesList.forEach((zoneName, index) => {
-                    const isTask = zoneName.startsWith('[任務]');
-                    const displayZoneName = isTask ? zoneName.replace('[任務]', '') : zoneName;
-                    
-                    const isLocalTask = firestoreTasks.includes(zoneName);
-                    const isHighlighted = firestoreHighlights.includes(zoneName); 
-
-                    const zoneDiv = document.createElement('div');
-                    zoneDiv.className = isTask ? 'zone task-zone' : 'zone';
-                    zoneDiv.id = `zone${index + 1}`;
-                    
-                    let deleteBtnHtml = '';
-                    if (isTask && isLocalTask) {
-                        deleteBtnHtml = `<button class="delete-task-btn" title="移除任務"><span class="material-icons-outlined" style="font-size: 18px;">delete</span></button>`;
-                    }
-
-                    const nameSpanHtml = isTask 
-                        ? `<span class="zone-name editable-task-name" data-val="${zoneName}" contenteditable="true" spellcheck="false" title="點按編輯名稱">${displayZoneName}</span>` 
-                        : `<span class="zone-name" data-val="${zoneName}">${displayZoneName}</span>`;
-
-                    zoneDiv.innerHTML = `
-                        <div class="zone-header ${isHighlighted ? 'highlighted' : ''}">
-                            <h3 style="color: ${isTask ? '#3f51b5' : '#333'};">
-                                ${isTask ? '<span class="material-icons-outlined" style="margin-right:6px; font-size:22px;">assignment</span>' : ''}
-                                ${nameSpanHtml}
-                                <span class="zone-count">[0項]</span>
-                            </h3>
-                            <div style="display: flex; align-items: center;">
-                                ${deleteBtnHtml}
-                                <label class="switch" title="標記熱區">
-                                    <input type="checkbox" class="zone-highlight-toggle" ${isHighlighted ? 'checked' : ''}>
-                                    <span class="slider"></span>
-                                </label>
-                                <span class="zone-toggle-icon">▼</span>
-                            </div>
-                        </div>
-                        <div class="zone-content"></div>
-                    `;
-                    zonesContainer.appendChild(zoneDiv);
-
-                    if (isTask) {
-                        const nameSpan = zoneDiv.querySelector('.editable-task-name');
-                        const oldVal = zoneName;
-
-                        nameSpan.addEventListener('keydown', (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                nameSpan.blur(); 
-                            }
-                        });
-
-                        nameSpan.addEventListener('blur', () => {
-                            let newText = nameSpan.textContent.trim();
-                            if (newText === '') {
-                                nameSpan.textContent = displayZoneName; 
-                                return;
-                            }
-                            
-                            let newVal = `[任務]${newText}`;
-                            if (newVal !== oldVal) {
-                                if (firestoreTasks.includes(newVal) || Array.from(globalDynamicZones).includes(newVal)) {
-                                    showMessage("任務名稱已存在，請使用其他名稱", "red");
-                                    nameSpan.textContent = displayZoneName;
-                                    return;
-                                }
-                                
-                                const idx = firestoreTasks.indexOf(oldVal);
-                                if (idx !== -1) {
-                                    firestoreTasks[idx] = newVal;
-                                    refreshFrontendView(); 
-                                    
-                                    const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                                    setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error(e));
-                                }
-
-                                const hIdx = firestoreHighlights.indexOf(oldVal);
-                                if (hIdx !== -1) {
-                                    firestoreHighlights[hIdx] = newVal;
-                                    const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
-                                    setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(e => console.error(e));
-                                }
-                                
-                                let hasAssignmentsChanged = false;
-                                for (let uid in firestoreZoneAssignments) {
-                                    if (firestoreZoneAssignments[uid] === oldVal) {
-                                        firestoreZoneAssignments[uid] = newVal;
-                                        hasAssignmentsChanged = true;
-                                    }
-                                }
-                                if (hasAssignmentsChanged) {
-                                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                    setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
-                                }
-                                
-                                if(globalDynamicZones.has(oldVal)) {
-                                    globalDynamicZones.delete(oldVal);
-                                    globalDynamicZones.add(newVal);
-                                }
-                                
-                                showMessage("任務名稱已更新", "green");
-                                refreshFrontendView(); 
-                            }
-                        });
-
-                        if (isLocalTask) {
-                            const delBtn = zoneDiv.querySelector('.delete-task-btn');
-                            if (delBtn) {
-                                delBtn.addEventListener('click', (e) => {
-                                    e.stopPropagation(); 
-                                    
-                                    showConfirm(`確定要解散任務「${nameSpan.textContent.trim()}」嗎？\n(任務內的器材將會自動歸位)`, () => {
-                                        firestoreTasks = firestoreTasks.filter(t => t !== oldVal);
-                                        globalDynamicZones.delete(oldVal);
-                                        
-                                        let hasAssignmentsChanged = false;
-                                        for (let uid in firestoreZoneAssignments) {
-                                            if (firestoreZoneAssignments[uid] === oldVal) {
-                                                delete firestoreZoneAssignments[uid];
-                                                hasAssignmentsChanged = true;
-                                            }
-                                        }
-
-                                        refreshFrontendView(); 
-                                        
-                                        const tasksDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'tasks');
-                                        setDoc(tasksDocRef, { list: firestoreTasks }).catch(e => console.error(e));
-                                        
-                                        if (firestoreHighlights.includes(oldVal)) {
-                                            firestoreHighlights = firestoreHighlights.filter(t => t !== oldVal);
-                                            const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
-                                            setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(e => console.error(e));
-                                        }
-                                        
-                                        if (hasAssignmentsChanged) {
-                                            const assignRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                            setDoc(assignRef, { map: firestoreZoneAssignments }).catch(e => console.error(e));
-                                        }
-                                        
-                                        showMessage("任務已解散，器材皆已歸位", "green");
-                                    });
-                                });
-                            }
-                        }
-                    }
-                });
-                zones = Array.from(zonesContainer.querySelectorAll('.zone'));
-                attachZoneEventListeners();
-                updateToggleButton();
-            }
-
-            function renderCategories(categoriesList) {
-                if (!categoriesList || categoriesList.length === 0) return;
-                categoryButtonsContainer.innerHTML = '';
-                categoriesList.forEach((categoryName) => {
-                    const button = document.createElement('button');
-                    button.className = 'category-button active';
-                    button.setAttribute('data-category', categoryName);
-                    button.innerHTML = `<span class="material-icons-outlined" style="font-size: 20px;">visibility</span><span>${categoryName}</span>`;
-                    categoryButtonsContainer.appendChild(button);
-                });
-                attachCategoryEventListeners();
-            }
-
-            function renderObjects(parsedData) {
-                if (!parsedData || parsedData.length === 0) return;
-
-                parsedData.forEach(objData => {
-                    const objectDiv = document.createElement('div');
-                    objectDiv.className = 'object';
-                    objectDiv.draggable = true;
-                    
-                    objectDiv.$data = objData;
-                    objectDiv.setAttribute('data-row-index', objData._rowIndex);
-                    
-                    objectDiv.setAttribute('data-id', objData[sysColId]);
-                    objectDiv.setAttribute('data-category', objData._cat);
-                    objectDiv.setAttribute('data-zone', objData._zone);
-                    objectDiv.setAttribute('data-status', objData._stat);
-                    
-                    const iconValue = objData[sysColIcon] ? String(objData[sysColIcon]).trim() : '';
-                    let iconHtml = '';
-                    if (iconValue) {
-                        if (iconValue.includes('<') && iconValue.includes('>')) {
-                            iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                        } else if (iconValue.startsWith('http')) {
-                            iconHtml = `<img src="${iconValue}" class="object-icon" alt="icon" onerror="this.style.display='none'">`;
-                        } else if (iconValue.includes('fa-')) {
-                            iconHtml = `<i class="${iconValue} object-icon-font"></i>`;
-                        } else if (/^[a-zA-Z0-9_]+$/.test(iconValue)) {
-                            iconHtml = `<span class="material-icons object-icon-font">${iconValue}</span>`;
-                        } else {
-                            iconHtml = `<span class="object-icon-font">${iconValue}</span>`;
-                        }
-                    }
-
-                    const displayName = objData[sysColName] || '未命名';
-                    const displaySubName = sysColSubName && objData[sysColSubName] ? `<span>${objData[sysColSubName]}</span>` : '';
-                    objectDiv.innerHTML = `${iconHtml}<span>${displayName}</span>${displaySubName}`;
-                    
-                    allObjects.push(objectDiv);
-                    
-                    const targetZone = zones.find(zone => zone.querySelector('.zone-name').getAttribute('data-val') === objData._zone);
-                    if (targetZone) {
-                        targetZone.querySelector('.zone-content').appendChild(objectDiv);
-                    }
-                });
-
-                attachObjectEventListeners();
-                filterObjects();
-            }
-
-            function attachZoneEventListeners() {
-                zones.forEach(zone => {
-                    const header = zone.querySelector('.zone-header');
-                    
-                    const switchLabel = header.querySelector('.switch');
-                    if (switchLabel) {
-                        switchLabel.addEventListener('click', (e) => e.stopPropagation());
-                    }
-                    
-                    const toggleInput = header.querySelector('.zone-highlight-toggle');
-                    if (toggleInput) {
-                        toggleInput.addEventListener('change', (e) => {
-                            const zName = zone.querySelector('.zone-name').getAttribute('data-val');
-                            if (e.target.checked) {
-                                header.classList.add('highlighted');
-                                if (!firestoreHighlights.includes(zName)) firestoreHighlights.push(zName);
-                            } else {
-                                header.classList.remove('highlighted');
-                                firestoreHighlights = firestoreHighlights.filter(name => name !== zName);
-                            }
-                            
-                            applyHighlightsFromFirestore(); 
-                            
-                            if (currentUser) {
-                                const highlightsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'highlights');
-                                setDoc(highlightsDocRef, { list: firestoreHighlights }).catch(err => console.error("標記儲存失敗", err));
-                            }
-                        });
-                    }
-
-                    header.addEventListener('click', (e) => {
-                        if (e.target.classList.contains('editable-task-name')) return;
-                        
-                        zones.forEach(z => { if (z !== zone) z.classList.remove('expanded'); });
-                        zone.classList.toggle('expanded');
-                        updateToggleButton(); saveState(); 
-                    });
-
-                    const dropAreas = [header, zone.querySelector('.zone-content')];
-                    dropAreas.forEach(dropArea => {
-                        dropArea.addEventListener('dragover', (e) => {
-                            e.preventDefault();
-                            if (draggedItem) { zone.classList.add('expanded'); dropArea.classList.add('drag-over'); }
-                        });
-
-                        dropArea.addEventListener('dragleave', (e) => { dropArea.classList.remove('drag-over'); });
-
-                        dropArea.addEventListener('drop', (e) => {
-                            e.preventDefault(); dropArea.classList.remove('drag-over');
-                            if (draggedItem) {
-                                const objData = draggedItem.$data;
-                                const uid = objData._uid;
-                                const rowIndex = draggedItem.getAttribute('data-row-index');
-                                const newZone = zone.querySelector('.zone-name').getAttribute('data-val');
-                                
-                                if (objData._zone === newZone) return; 
-                                
-                                const isTask = newZone.startsWith('[任務]');
-
-                                if (isTask) {
-                                    firestoreZoneAssignments[uid] = newZone;
-                                    refreshFrontendView(); 
-                                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                    setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
-                                } else {
-                                    let changedOverlay = false;
-                                    if (firestoreZoneAssignments[uid]) {
-                                        delete firestoreZoneAssignments[uid];
-                                        changedOverlay = true;
-                                    }
-                                    const targetObj = globalAllParsedObjects.find(o => o._uid === uid);
-                                    if (targetObj) targetObj._originalZone = newZone;
-
-                                    refreshFrontendView();
-
-                                    if (changedOverlay) {
-                                        const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                                        setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
-                                    }
-
-                                    updateObjectData(rowIndex, { [sysColZone]: newZone });
-                                }
-                            }
-                        });
-                    });
-                });
-            }
-
-            function attachObjectEventListeners() {
-                allObjects.forEach(item => {
-                    item.addEventListener('dragstart', (e) => {
-                        if (e.target.getAttribute('data-panel-open') === 'true') { e.preventDefault(); return; }
-                        draggedItem = e.target;
-                        setTimeout(() => e.target.classList.add('dragging'), 0);
-                    });
-
-                    item.addEventListener('dragend', (e) => {
-                        e.target.classList.remove('dragging');
-                        draggedItem = null;
-                    });
-
-                    item.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        
-                        const openPanel = document.querySelector('.object[data-panel-open="true"]');
-                        if (openPanel && openPanel !== item) openPanel.setAttribute('data-panel-open', 'false');
-                        
-                        const isOpen = item.getAttribute('data-panel-open') === 'true';
-                        item.setAttribute('data-panel-open', !isOpen);
-
-                        if (!isOpen) {
-                            stopAutoRefresh(); 
-                            
-                            objectPanelTitle.innerHTML = item.$data[sysColName] || '詳細資料';
-                            
-                            let previewHTML = '';
-                            dataHeaders.forEach(header => {
-                                const value = item.$data[header];
-                                if (value !== undefined && value !== '') {
-                                    let displayValue = value;
-                                    if (typeof value === 'string' && (value.startsWith('http://') || value.startsWith('https://'))) {
-                                        displayValue = `<a href="${value}" target="_blank" style="color: #3f51b5; text-decoration: underline; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
-                                            <span class="material-icons-outlined" style="font-size: 18px;">link</span>按我查閱
-                                        </a>`;
-                                    }
-                                    if (header === sysColZone && typeof displayValue === 'string') {
-                                        displayValue = item.$data._zone.replace('[任務]', '');
-                                    }
-                                    if (header === sysColStatus && typeof displayValue === 'string') {
-                                        displayValue = item.$data._stat;
-                                    }
-                                    previewHTML += `<div style="margin-bottom: 5px;"><strong>${header}：</strong> <span>${displayValue}</span></div>`;
-                                }
-                            });
-                            objectPanelContent.innerHTML = previewHTML;
-                            
-                            objectInfoPanel.classList.add('visible');
-                            changeBtn.style.display = 'block'; closeBtnInline.style.display = 'flex';
-                            confirmBtn.style.display = 'none'; cancelBtnInline.style.display = 'none'; 
-                            propertyArea.classList.remove('visible');
-                            
-                            generateDynamicPropertyArea(item);
-                            
-                            objectInfoPanel.currentObject = item;
-                            saveState(); 
-                        } else {
-                            closeObjectPanel(); 
-                        }
-                    });
-                });
-            }
-
-            function generateDynamicPropertyArea(item) {
-                propertyArea.innerHTML = '';
-                const objData = item.$data;
-
-                dataHeaders.forEach((header, index) => { 
-                    if (header === sysColId || header === sysColCategory || index === 6 || index === 7 || index === 8) return;
-
-                    const rowDiv = document.createElement('div');
-                    rowDiv.innerHTML = `<span class="label">${header}：</span>`;
-                    
-                    if (header === sysColZone) {
-                        const wrapper = document.createElement('div');
-                        wrapper.id = 'dynamic-zone-container';
-                        wrapper.style.width = '100%';
-
-                        const taskDiv = document.createElement('div');
-                        taskDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:5px; margin-bottom:8px; color:#3f51b5; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">assignment</span> 任務編組 (調度出勤)</div>';
-                        const taskContainer = document.createElement('div');
-                        taskContainer.className = 'status-buttons-container';
-                        taskDiv.appendChild(taskContainer);
-
-                        const physDiv = document.createElement('div');
-                        physDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:15px; margin-bottom:8px; color:#666; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">place</span> 實體地點 (歸位)</div>';
-                        const physContainer = document.createElement('div');
-                        physContainer.className = 'status-buttons-container';
-                        physDiv.appendChild(physContainer);
-
-                        const allZoneBtns = [];
-
-                        zones.map(z => z.querySelector('.zone-name').getAttribute('data-val')).forEach(zName => {
-                            const isTask = zName.startsWith('[任務]');
-                            const displayZName = isTask ? zName.replace('[任務]', '') : zName;
-
-                            const btn = document.createElement('button');
-                            btn.textContent = displayZName;
-                            btn.className = 'status-button zone-button';
-                            btn.setAttribute('data-val', zName); 
-
-                            if (zName === objData._zone) {
-                                btn.classList.add('active');
-                            }
-
-                            btn.addEventListener('click', () => {
-                                allZoneBtns.forEach(b => b.classList.remove('active'));
-                                btn.classList.add('active');
-                            });
-
-                            allZoneBtns.push(btn);
-
-                            if (isTask) {
-                                taskContainer.appendChild(btn);
-                            } else {
-                                physContainer.appendChild(btn);
-                            }
-                        });
-
-                        if(taskContainer.children.length > 0) wrapper.appendChild(taskDiv);
-                        if(physContainer.children.length > 0) wrapper.appendChild(physDiv);
-
-                        rowDiv.style.alignItems = 'flex-start'; 
-                        rowDiv.appendChild(wrapper);
-                    } 
-                    else if (header === sysColStatus) {
-                        const wrapper = document.createElement('div');
-                        wrapper.id = 'dynamic-status-container'; 
-                        wrapper.style.width = '100%';
-
-                        const customDiv = document.createElement('div');
-                        customDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:5px; margin-bottom:8px; color:#f44336; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">bookmark_add</span> 臨時標記 (圖層覆蓋)</div>';
-                        const customContainer = document.createElement('div');
-                        customContainer.className = 'status-buttons-container';
-                        customDiv.appendChild(customContainer);
-
-                        const nativeDiv = document.createElement('div');
-                        nativeDiv.innerHTML = '<div style="font-size: 14px; font-weight:bold; margin-top:15px; margin-bottom:8px; color:#666; display:flex; align-items:center; gap:4px;"><span class="material-icons-outlined" style="font-size:16px;">inventory_2</span> 系統狀態 (試算表歸檔)</div>';
-                        const nativeContainer = document.createElement('div');
-                        nativeContainer.className = 'status-buttons-container';
-                        nativeDiv.appendChild(nativeContainer);
-
-                        const allStatusBtns = [];
-
-                        statusOptions.forEach(sName => {
-                            const isCustomStatus = firestoreStatuses.includes(sName);
-
-                            const btn = document.createElement('button');
-                            btn.textContent = sName; 
-                            btn.className = 'status-button';
-                            btn.setAttribute('data-status', sName); 
-                            
-                            if (sName === objData._stat) btn.classList.add('active');
-                            
-                            btn.addEventListener('click', () => {
-                                allStatusBtns.forEach(b => b.classList.remove('active'));
-                                btn.classList.add('active');
-                            });
-                            
-                            allStatusBtns.push(btn);
-
-                            if (isCustomStatus) {
-                                customContainer.appendChild(btn);
-                            } else {
-                                nativeContainer.appendChild(btn);
-                            }
-                        });
-
-                        if(customContainer.children.length > 0) wrapper.appendChild(customDiv);
-                        if(nativeContainer.children.length > 0) wrapper.appendChild(nativeDiv);
-
-                        rowDiv.style.alignItems = 'flex-start';
-                        rowDiv.appendChild(wrapper);
-                    } 
-                    else {
-                        const input = document.createElement('input');
-                        input.type = 'text';
-                        input.className = 'input-field dynamic-input'; 
-                        input.setAttribute('data-field', header);
-                        input.value = objData[header] || '';
-                        rowDiv.appendChild(input);
-                    }
-                    propertyArea.appendChild(rowDiv);
-                });
-            }
-
-            // 🌟 移除儲存顏色時的等待鎖 (Fire and forget)
-            function saveAllColors() {
-                if (!currentUser) return showMessage("尚未連線至同步資料庫", "red");
-                const payloadData = {};
-                statusOptions.forEach(status => {
-                    payloadData[status] = customColors[status] || '';
-                });
-                payloadData['ZONE_HIGHLIGHT'] = customColors['ZONE_HIGHLIGHT'] || '';
-
-                const colorsDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'colors');
-                setDoc(colorsDocRef, payloadData).catch(e => {
-                    console.error("更新配色庫失敗", e);
-                    showMessage("顏色存檔時發生網路錯誤", 'red');
-                });
-            }
-
-            function renderColorLegend() {
-                colorLegendContent.innerHTML = '';
-                
-                const mockZone = document.createElement('div');
-                mockZone.className = 'zone expanded';
-                mockZone.style.marginBottom = '10px';
-                mockZone.style.border = '1px solid #ddd';
-                mockZone.style.boxShadow = 'none'; 
-                mockZone.innerHTML = `
-                    <div class="zone-header highlighted" style="cursor: pointer;" title="點按更換標註色">
-                        <h3><span class="zone-name">標題列標註切換色(點按圖例改色)</span></h3>
-                        <div style="display: flex; align-items: center;">
-                            <label class="switch" title="切換預覽">
-                                <input type="checkbox" checked class="mock-highlight-toggle">
-                                <span class="slider"></span>
-                            </label>
-                            <span class="zone-toggle-icon">▼</span>
-                        </div>
-                    </div>
-                    <div class="zone-content" id="mock-zone-content" style="padding: 15px;"></div>
-                `;
-                colorLegendContent.appendChild(mockZone);
-
-                const headerLegend = mockZone.querySelector('.zone-header');
-                const headerToggle = mockZone.querySelector('.mock-highlight-toggle');
-                
-                const headerColorInput = document.createElement('input');
-                headerColorInput.type = 'color';
-                headerColorInput.style.display = 'none';
-                if (customColors['ZONE_HIGHLIGHT']) { headerColorInput.value = customColors['ZONE_HIGHLIGHT']; }
-                
-                headerLegend.addEventListener('click', (e) => {
-                    if (e.target === headerToggle || e.target.closest('.switch')) {
-                        if(headerToggle.checked) headerLegend.classList.add('highlighted');
-                        else headerLegend.classList.remove('highlighted');
-                        return;
-                    }
-                    headerColorInput.click();
-                });
-                
-                headerColorInput.addEventListener('input', (e) => {
-                    customColors['ZONE_HIGHLIGHT'] = e.target.value;
-                    applyCustomColors();
-                    if (!headerToggle.checked) {
-                        headerToggle.checked = true;
-                        headerLegend.classList.add('highlighted');
-                    }
-                });
-                
-                headerColorInput.addEventListener('change', (e) => {
-                    customColors['ZONE_HIGHLIGHT'] = e.target.value;
-                    applyCustomColors();
-                });
-                colorLegendContent.appendChild(headerColorInput);
-
-                const mockPropArea = document.createElement('div');
-                mockPropArea.className = 'property-area visible';
-                mockPropArea.style.maxHeight = 'none';
-                mockPropArea.style.marginBottom = '0';
-                mockPropArea.innerHTML = `
-                    <div style="background-color: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
-                        <div style="margin-bottom: 15px; font-weight: bold; color: #333; display: flex; align-items: center; gap: 8px;">
-                            <span class="material-icons-outlined">touch_app</span> 屬性面板狀態按鈕預覽 (點按亦可改色)
-                        </div>
-                        <div style="display: flex; align-items: center;">
-                            <span class="label">狀態：</span>
-                            <div class="status-buttons-container" id="mock-status-container"></div>
-                        </div>
-                    </div>
-                `;
-                colorLegendContent.appendChild(mockPropArea);
-
-                const mockZoneContent = mockZone.querySelector('#mock-zone-content');
-                const mockStatusContainer = mockPropArea.querySelector('#mock-status-container');
-                
-                statusOptions.forEach(status => {
-                    const isCustomStatus = firestoreStatuses.includes(status);
-                    
-                    const objLegend = document.createElement('div');
-                    objLegend.className = 'object'; 
-                    objLegend.setAttribute('data-status', status);
-                    objLegend.style.cursor = 'pointer'; 
-                    
-                    objLegend.style.display = 'flex';
-                    objLegend.style.alignItems = 'center';
-                    objLegend.style.justifyContent = 'flex-start';
-                    objLegend.style.padding = '8px 12px';
-                    
-                    let delHtml = '';
-                    if (isCustomStatus) {
-                        delHtml = `<span class="material-icons-outlined delete-status-btn" style="color:#f44336; margin-left:auto; font-size:22px; padding:4px; border-radius:50%; transition: background-color 0.2s; pointer-events: auto;" title="刪除自訂狀態">delete</span>`;
-                    }
-                    objLegend.innerHTML = `<span class="material-icons-outlined object-icon-font" style="margin-right:8px;">speaker</span><span style="flex-grow:1; text-align:left;">${status}</span>${delHtml}`;
-                    
-                    const btnLegend = document.createElement('button');
-                    btnLegend.className = 'status-button active'; 
-                    btnLegend.setAttribute('data-status', status);
-                    btnLegend.style.cursor = 'pointer'; 
-                    btnLegend.textContent = status;
-
-                    const colorInput = document.createElement('input');
-                    colorInput.type = 'color'; colorInput.style.display = 'none';
-                    if (customColors[status]) { colorInput.value = customColors[status]; }
-
-                    const triggerPicker = () => colorInput.click();
-                    objLegend.addEventListener('click', triggerPicker);
-                    btnLegend.addEventListener('click', triggerPicker);
-
-                    if (isCustomStatus) {
-                        const delBtn = objLegend.querySelector('.delete-status-btn');
-                        
-                        delBtn.addEventListener('mouseenter', () => delBtn.style.backgroundColor = 'rgba(244, 67, 54, 0.1)');
-                        delBtn.addEventListener('mouseleave', () => delBtn.style.backgroundColor = 'transparent');
-                        
-                        delBtn.addEventListener('click', (e) => {
-                            e.stopPropagation(); 
-                            showConfirm(`確定要刪除自訂狀態「${status}」嗎？\n(已套用此狀態的器材會自動恢復成預設狀態)`, () => {
-                                firestoreStatuses = firestoreStatuses.filter(s => s !== status);
-                                
-                                let hasAssignmentsChanged = false;
-                                for (let uid in firestoreStatusAssignments) {
-                                    if (firestoreStatusAssignments[uid] === status) {
-                                        delete firestoreStatusAssignments[uid];
-                                        hasAssignmentsChanged = true;
-                                    }
-                                }
-                                if (hasAssignmentsChanged) {
-                                    const assignRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
-                                    setDoc(assignRef, { map: firestoreStatusAssignments }).catch(e => console.error(e));
-                                }
-
-                                refreshFrontendView();
-                                if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
-
-                                const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
-                                setDoc(statusesDocRef, { list: firestoreStatuses }).catch(e => console.error(e));
-                            });
-                        });
-                    }
-
-                    colorInput.addEventListener('input', (e) => {
-                        const newColor = e.target.value;
-                        customColors[status] = newColor;
-                        applyCustomColors();
-                    });
-
-                    colorInput.addEventListener('change', (e) => {
-                        const newColor = e.target.value;
-                        customColors[status] = newColor;
-                        applyCustomColors();
-                    });
-
-                    mockZoneContent.appendChild(objLegend);
-                    mockStatusContainer.appendChild(btnLegend);
-                    colorLegendContent.appendChild(colorInput);
-                });
-
-                const addStatusContainer = document.createElement('div');
-                addStatusContainer.style.marginTop = '15px';
-                addStatusContainer.style.textAlign = 'center';
-                const addStatusBtn = document.createElement('button');
-                addStatusBtn.className = 'toggle-btn white-bg';
-                addStatusBtn.style.padding = '8px 15px';
-                addStatusBtn.style.fontSize = '16px';
-                addStatusBtn.innerHTML = '<span class="material-icons-outlined" style="font-size: 20px;">add</span> 建立新自訂狀態';
-                
-                addStatusBtn.addEventListener('click', () => {
-                    showPrompt('請輸入新的自訂狀態名稱：', '未命名', (newStatus) => {
-                        if (newStatus && newStatus.trim()) {
-                            const sName = newStatus.trim();
-                            if (statusOptions.includes(sName)) {
-                                showMessage('此狀態已存在於系統中', 'red');
-                                return;
-                            }
-                            
-                            firestoreStatuses.push(sName);
-                            refreshFrontendView();
-                            if (colorSettingsPanel.classList.contains('visible')) renderColorLegend();
-
-                            const statusesDocRef = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statuses');
-                            setDoc(statusesDocRef, { list: firestoreStatuses }).catch(e => console.error(e));
-                            showMessage('已成功新增自訂狀態！', 'green');
-                        }
-                    });
-                });
-
-                addStatusContainer.appendChild(addStatusBtn);
-                colorLegendContent.appendChild(addStatusContainer);
-            }
-
-            openColorPanelBtn.addEventListener('click', () => {
-                originalCustomColors = JSON.parse(JSON.stringify(customColors));
-                renderColorLegend(); 
-                colorSettingsPanel.classList.add('visible'); 
-                floatingPanel.classList.remove('expanded'); 
-                stopAutoRefresh();
-            });
-
-            cancelColorsBtn.addEventListener('click', () => {
-                customColors = JSON.parse(JSON.stringify(originalCustomColors));
-                applyCustomColors(); 
-                colorSettingsPanel.classList.remove('visible'); 
-                startAutoRefresh();
-            });
-            
-            // 🌟 將「套用」按鈕的等待鎖解除，實作樂觀渲染 (Fire and Forget)
-            applyColorsBtn.addEventListener('click', () => {
-                showMessage("正在將最新配色庫同步至雲端...", '#ff9800');
-                saveAllColors(); // 背景執行不阻塞
-                showMessage("雲端配色庫已全面更新！", 'green');
-                colorSettingsPanel.classList.remove('visible'); 
-                startAutoRefresh();
-            });
-
-            function attachCategoryEventListeners() {
-                const categoryButtons = document.querySelectorAll('#category-buttons-container .category-button');
-                categoryButtons.forEach(button => {
-                    button.addEventListener('click', () => {
-                        button.classList.toggle('active'); 
-                        const iconSpan = button.querySelector('.material-icons-outlined');
-                        if (iconSpan) {
-                            iconSpan.textContent = button.classList.contains('active') ? 'visibility' : 'visibility_off';
-                        }
-                        filterObjects(); saveState(); 
-                    });
-                });
-            }
-
-            function areAllZonesExpanded() { return Array.from(zones).every(zone => zone.classList.contains('expanded')); }
-
-            function updateToggleButton() {
-                if (areAllZonesExpanded()) { 
-                    toggleAllBtn.innerHTML = '<span class="material-icons-outlined">unfold_less</span><span>全部收合</span>'; 
-                    toggleAllBtn.title = '全部收合';
-                    toggleAllBtn.classList.add('active'); 
-                } 
-                else { 
-                    toggleAllBtn.innerHTML = '<span class="material-icons-outlined">unfold_more</span><span>全部展開</span>'; 
-                    toggleAllBtn.title = '全部展開';
-                    toggleAllBtn.classList.remove('active'); 
-                }
-            }
-            
-            function filterObjects() {
-                const selectedCategories = Array.from(document.querySelectorAll('#category-buttons-container .category-button.active')).map(btn => btn.getAttribute('data-category'));
-                allObjects.forEach(object => {
-                    if (selectedCategories.includes(object.getAttribute('data-category'))) object.classList.remove('hidden');
-                    else object.classList.add('hidden');
-                });
-                updateZoneCounts();
-            }
-
-            panelToggleBtn.addEventListener('click', () => { floatingPanel.classList.add('expanded'); stopAutoRefresh(); saveState(); });
-            collapseBtn.addEventListener('click', () => { floatingPanel.classList.remove('expanded'); startAutoRefresh(); saveState(); });
-
-            toggleAllBtn.addEventListener('click', () => {
-                if (areAllZonesExpanded()) zones.forEach(zone => zone.classList.remove('expanded'));
-                else zones.forEach(zone => zone.classList.add('expanded'));
-                updateToggleButton(); saveState(); 
-            });
-            
-            function closeObjectPanel() {
-                const openPanel = document.querySelector('.object[data-panel-open="true"]');
-                if (openPanel) openPanel.setAttribute('data-panel-open', 'false');
-                objectInfoPanel.classList.remove('visible');
-                changeBtn.style.display = 'none'; closeBtnInline.style.display = 'none';
-                confirmBtn.style.display = 'none'; cancelBtnInline.style.display = 'none'; 
-                propertyArea.classList.remove('visible');
-                startAutoRefresh(); saveState(); 
-            }
-
-            closeBtnInline.addEventListener('click', closeObjectPanel); 
-            cancelBtnInline.addEventListener('click', closeObjectPanel); 
-
-            document.addEventListener('click', (e) => {
-                if (objectInfoPanel.classList.contains('visible') && !objectInfoPanel.contains(e.target)) {
-                    if (!e.target.closest('.object')) closeObjectPanel();
-                }
-                if (colorSettingsPanel.classList.contains('visible') && !colorSettingsPanel.contains(e.target)) {
-                    if (!e.target.closest('#open-color-panel-btn')) {
-                        customColors = JSON.parse(JSON.stringify(originalCustomColors));
-                        applyCustomColors();
-                        colorSettingsPanel.classList.remove('visible'); 
-                        startAutoRefresh();
-                    }
-                }
-                if (helpPanel.classList.contains('visible') && !helpPanel.contains(e.target)) {
-                    if (!e.target.closest('#help-btn')) {
-                        helpPanel.classList.remove('visible');
-                        startAutoRefresh();
-                    }
-                }
-            });
-
-            objectPanelContent.addEventListener('mousedown', (e) => { document.execCommand('copy'); console.log('已複製'); });
-            
-            changeBtn.addEventListener('click', () => {
-                changeBtn.style.display = 'none'; closeBtnInline.style.display = 'none'; 
-                confirmBtn.style.display = 'block'; cancelBtnInline.style.display = 'block'; 
-                propertyArea.classList.add('visible'); saveState(); 
-            });
-
-            confirmBtn.addEventListener('click', () => {
-                const currentObject = objectInfoPanel.currentObject;
-                if (!currentObject) return;
-
-                const rowIndex = currentObject.getAttribute('data-row-index');
-                const uid = currentObject.$data._uid;
-                const allCollectedData = {};
-
-                const activeZoneBtn = document.querySelector('#dynamic-zone-container .status-button.active');
-                if (activeZoneBtn) allCollectedData[sysColZone] = activeZoneBtn.getAttribute('data-val');
-
-                const activeStatusBtn = document.querySelector('#dynamic-status-container .status-button.active');
-                if (activeStatusBtn) allCollectedData[sysColStatus] = activeStatusBtn.textContent;
-
-                let gasPayload = {};
-                let updateZoneOverlay = false;
-                let updateStatusOverlay = false;
-                
-                const newZone = allCollectedData[sysColZone];
-                const newStat = allCollectedData[sysColStatus];
-
-                if (newZone !== currentObject.$data._zone) {
-                    const isTask = newZone && newZone.startsWith('[任務]');
-                    if (isTask) {
-                        firestoreZoneAssignments[uid] = newZone;
-                        updateZoneOverlay = true;
-                    } else {
-                        if (firestoreZoneAssignments[uid]) {
-                            delete firestoreZoneAssignments[uid];
-                            updateZoneOverlay = true;
-                        }
-                        const tObj = globalAllParsedObjects.find(o => o._uid === uid);
-                        if (tObj) tObj._originalZone = newZone;
-                        gasPayload[sysColZone] = newZone; 
-                    }
-                }
-
-                if (newStat !== currentObject.$data._stat) {
-                    const isCustomStatus = firestoreStatuses.includes(newStat);
-                    if (isCustomStatus) {
-                        firestoreStatusAssignments[uid] = newStat;
-                        updateStatusOverlay = true;
-                    } else {
-                        if (firestoreStatusAssignments[uid]) {
-                            delete firestoreStatusAssignments[uid];
-                            updateStatusOverlay = true;
-                        }
-                        const tObj = globalAllParsedObjects.find(o => o._uid === uid);
-                        if (tObj) tObj._originalStat = newStat;
-                        gasPayload[sysColStatus] = newStat; 
-                    }
-                }
-
-                document.querySelectorAll('.dynamic-input').forEach(input => {
-                    const fieldName = input.getAttribute('data-field');
-                    if (input.value !== currentObject.$data[fieldName]) {
-                        gasPayload[fieldName] = input.value;
-                        const tObj = globalAllParsedObjects.find(o => o._uid === uid);
-                        if (tObj) tObj[fieldName] = input.value;
-                    }
-                });
-
-                if (!updateZoneOverlay && !updateStatusOverlay && Object.keys(gasPayload).length === 0) {
-                    closeObjectPanel();
-                    showMessage("資料未變動，無須更新。", '#ff9800'); 
-                    return; 
-                }
-
-                // 🌟 同樣將這些儲存動作改為非阻塞的樂觀寫入
-                if (updateZoneOverlay) {
-                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'zoneAssignments');
-                    setDoc(ref, { map: firestoreZoneAssignments }).catch(e => console.error(e));
-                }
-                if (updateStatusOverlay) {
-                    const ref = doc(db, 'artifacts', globalAppId, 'public', 'data', 'system_config', 'statusAssignments');
-                    setDoc(ref, { map: firestoreStatusAssignments }).catch(e => console.error(e));
-                }
-                if (Object.keys(gasPayload).length > 0) {
-                    updateObjectData(rowIndex, gasPayload);
-                }
-
-                closeObjectPanel(); 
-                refreshFrontendView();
-                showMessage("資料已更新", 'green');
-            });
-
-            async function updateObjectData(rowIndex, dataPayload) {
-                if (APPS_SCRIPT_URL.includes('請在此貼上') || APPS_SCRIPT_URL.includes('YOUR_DEPLOYMENT')) {
-                    showMessage("請先在 Apps Script 中部署程式碼並更新 URL", 'red'); return;
-                }
-                try {
-                    const response = await fetch(APPS_SCRIPT_URL, {
-                        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body: JSON.stringify({ action: 'update', rowIndex: rowIndex, data: dataPayload })
-                    });
-                    
-                    const responseText = await response.text();
-                    let result;
-                    try { result = JSON.parse(responseText); } catch(e) { throw new Error("後端回傳異常，可能是權限設定沒有設為「所有人」，或者程式當機。"); }
-                    
-                    if (!result.success) showMessage("後端寫入失敗：" + result.error, 'red');
-                    
-                } catch (error) {
-                    console.error("更新資料失敗:", error);
-                    showMessage("連線異常或後端崩潰：" + error.message, 'red');
-                }
-            }
-            
-            fetchSpreadsheetData().then(() => startAutoRefresh());
-        }; 
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', startApp);
-        } else {
-            startApp();
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * Config
+     * ============================================================================
+     */
+    const Config = {
+      // 試算表 ID（網址：https://docs.google.com/spreadsheets/d/【這串就是ID】/edit）
+      SHEET_ID: '1UGZQa5FQY-3CaTtC7-8LfJz70sDX1UbkbVDAGciEZjQ',
+
+      // 可選：指定分頁（兩者皆留空時讀取第一個分頁）
+      SHEET_GID: '',       // 例如 '0'
+      SHEET_NAME: '',      // 例如 '工作表1'
+
+      // 單一連線通道逾時時間（毫秒）
+      TIMEOUT_MS: 10000,
+
+      STATUS_STYLES: {
+        '正常': {
+          cardClass: 'bg-white border-slate-200/90 hover:border-slate-400 hover:shadow-xs',
+          optionSelectedClass: 'bg-slate-800 text-white hover:bg-slate-700',
+          iconClass: 'text-slate-600 group-hover:text-slate-900',
+          textClass: 'text-slate-800',
+          badge: 'bg-slate-100 text-slate-700 border-slate-200',
+          dot: '',
+          showDot: false
+        },
+        '損壞': {
+          cardClass: 'bg-rose-600 border-rose-700 hover:bg-rose-700 shadow-2xs',
+          optionSelectedClass: 'bg-rose-600 text-white hover:bg-rose-700',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-rose-50 text-rose-700 border-rose-200',
+          dot: 'bg-rose-500',
+          showDot: true
+        },
+        '儲備': {
+          cardClass: 'bg-sky-600 border-sky-700 hover:bg-sky-700 shadow-2xs',
+          optionSelectedClass: 'bg-sky-600 text-white hover:bg-sky-700',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-sky-50 text-sky-700 border-sky-200',
+          dot: 'bg-sky-500',
+          showDot: true
+        },
+        '暫代': {
+          cardClass: 'bg-amber-500 border-amber-600 hover:bg-amber-600 shadow-2xs',
+          optionSelectedClass: 'bg-amber-500 text-white hover:bg-amber-600',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-amber-50 text-amber-700 border-amber-200',
+          dot: 'bg-amber-500',
+          showDot: true
+        },
+        '外借': {
+          cardClass: 'bg-teal-600 border-teal-700 hover:bg-teal-700 shadow-2xs',
+          optionSelectedClass: 'bg-teal-600 text-white hover:bg-teal-700',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-teal-50 text-teal-700 border-teal-200',
+          dot: 'bg-teal-500',
+          showDot: true
+        },
+        '送修': {
+          cardClass: 'bg-orange-500 border-orange-600 hover:bg-orange-600 shadow-2xs',
+          optionSelectedClass: 'bg-orange-500 text-white hover:bg-orange-600',
+          iconClass: 'text-white',
+          textClass: 'text-white',
+          badge: 'bg-orange-50 text-orange-700 border-orange-200',
+          dot: 'bg-orange-500',
+          showDot: true
         }
-    </script>
-    
-    <script>
+      },
+
+      FALLBACK_ITEMS: [
+        { rowNumber: 2, item: '投影機', category: '媒體', location: '四樓 歡喜地', status: '正常', note: '', alias: '投影機', iconHtml: '<span class="material-icons">videocam</span>', model: '', manualUrl: '', extraInfo: '' },
+        { rowNumber: 3, item: '音響擴大器', category: '固定設備', location: '三樓 音控室', status: '正常', note: '', alias: '音響', iconHtml: '<span class="material-icons">speaker</span>', model: 'YAMAHA MA2120', manualUrl: 'https://tw.yamaha.com/zh/download/files/2097944/', extraInfo: '' },
+        { rowNumber: 4, item: '麥克風接收天線', category: '固定設備', location: '四樓 歡喜地', status: '正常', note: '', alias: '接收器', iconHtml: '<span class="material-icons">settings_input_antenna</span>', model: 'MIPRO ACT 323', manualUrl: 'https://www.youtube.com/watch?v=7bTNLrbrvAE', extraInfo: '' },
+        { rowNumber: 6, item: '無線麥克風', category: '音控', location: '一樓 齋堂', status: '正常', note: '#2', alias: '無線2 (5D)', iconHtml: '<span class="material-icons">mic</span>', model: 'MIPRO ACT 33H', manualUrl: 'https://youtu.be/cOe7mJ5Ank8', extraInfo: '' },
+        { rowNumber: 19, item: '無線麥克風', category: '音控', location: '三樓 音控室', status: '損壞', note: '#2-舊', alias: '無線2 (6C)', iconHtml: '<span class="material-icons">mic</span>', model: 'MIPRO ACT 33H', manualUrl: 'https://youtu.be/cOe7mJ5Ank8', extraInfo: '' },
+        { rowNumber: 20, item: '無線麥克風', category: '音控', location: '三樓 音控室', status: '儲備', note: '2025購入', alias: '無線麥', iconHtml: '<span class="material-icons">mic</span>', model: 'MIPRO ACT 32H', manualUrl: 'https://youtu.be/cOe7mJ5Ank8', extraInfo: '' }
+      ]
+    };
+
+    /**
+     * ============================================================================
+     * AppState
+     * ============================================================================
+     */
+    const AppState = {
+      items: [],
+      meta: {
+        isLive: false,
+        transport: '',
+        lastSyncedAt: null
+      },
+      dict: {
+        categories: ['音控', '媒體', '攝錄', '固定設備'],
+        locations: ['四樓 歡喜地', '三樓 大殿', '三樓 音控室', '二樓 大教室', '二樓 小教室', '二樓 辦公室', '一樓 齋堂'],
+        statuses: ['正常', '儲備', '暫代', '外借', '送修', '損壞']
+      },
+      ui: {
+        // null 代表全部顯示；Set<string> 代表明確勾選顯示的條件
+        locationFilter: null,
+        categoryFilter: null,
+        statusFilter: null,
+        openDropdown: null,
+        groupBy: 'location',
+        collapsedGroups: new Set()
+      }
+    };
+
+    /**
+     * ============================================================================
+     * DataService（純前端無 CORS 讀取 Google Sheets：JSONP 主通道 + 兩層備援）
+     * ============================================================================
+     */
+    const DataService = {
+      isSyncing: false,
+
+      normalizeText(val) {
+        return String(val || '').replace(/\s+/g, ' ').trim();
+      },
+
+      setSyncStatus(state, message) {
+        const dot = document.getElementById('syncDot');
+        const label = document.getElementById('syncLabel');
+        if (!dot || !label) return;
+
+        if (state === 'loading') {
+          dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+          label.textContent = message || '同步中';
+        } else if (state === 'live') {
+          dot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+          label.textContent = message || '已連線';
+        } else {
+          dot.className = 'w-2 h-2 rounded-full bg-rose-500';
+          label.textContent = message || '連線異常';
+        }
+      },
+
+      showErrorBanner(detailText) {
+        const banner = document.getElementById('syncErrorBanner');
+        const detail = document.getElementById('syncErrorDetail');
+        if (!banner || !detail) return;
+        detail.textContent = detailText;
+        banner.classList.remove('hidden');
+      },
+
+      hideErrorBanner() {
+        const banner = document.getElementById('syncErrorBanner');
+        if (banner) banner.classList.add('hidden');
+      },
+
+      // 建立 gviz 查詢網址（可選傳入 JSONP callback 名稱）
+      buildGvizUrl(callbackName = '') {
+        const tqx = callbackName
+          ? `out:json;responseHandler:${callbackName}`
+          : 'out:json';
+        let url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(Config.SHEET_ID)}/gviz/tq?tqx=${encodeURIComponent(tqx)}&headers=1`;
+        if (Config.SHEET_GID) url += `&gid=${encodeURIComponent(Config.SHEET_GID)}`;
+        if (Config.SHEET_NAME) url += `&sheet=${encodeURIComponent(Config.SHEET_NAME)}`;
+        url += `&_t=${Date.now()}`;
+        return url;
+      },
+
+      // 建立 CSV 匯出網址（第三層備援）
+      buildCsvUrl() {
+        let url = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(Config.SHEET_ID)}/export?format=csv`;
+        if (Config.SHEET_GID) url += `&gid=${encodeURIComponent(Config.SHEET_GID)}`;
+        url += `&_t=${Date.now()}`;
+        return url;
+      },
+
+      // 依品項名稱推斷預設圖標
+      getDefaultIcon(itemName) {
+        const name = String(itemName || '').toLowerCase();
+        if (name.includes('投影') || name.includes('projector')) return '<span class="material-icons">videocam</span>';
+        if (name.includes('音響') || name.includes('擴大') || name.includes('speaker')) return '<span class="material-icons">speaker</span>';
+        if (name.includes('麥克風') || name.includes('mic')) return '<span class="material-icons">mic</span>';
+        if (name.includes('天線') || name.includes('接收')) return '<span class="material-icons">settings_input_antenna</span>';
+        if (name.includes('相機') || name.includes('攝影')) return '<span class="material-icons">photo_camera</span>';
+        return '<span class="material-icons">devices</span>';
+      },
+
+      // 將二維表格（標題列 + 資料列）轉為標準設備物件陣列
+      rowsToItems(headers, dataRows, rowNumberOffset = 2) {
+        const cleanHeaders = headers.map(h => this.normalizeText(h));
+
+        const findCol = (...names) => {
+          // 1. 優先精準比對
+          for (const n of names) {
+            const idx = cleanHeaders.findIndex(c => c.toLowerCase() === n.toLowerCase());
+            if (idx !== -1) return idx;
+          }
+          // 2. 次之模糊包含比對
+          for (const n of names) {
+            const idx = cleanHeaders.findIndex(c => c.toLowerCase().includes(n.toLowerCase()));
+            if (idx !== -1) return idx;
+          }
+          return -1;
+        };
+
+        const colMap = {
+          item:      findCol('品項', 'item', '設備', '名稱', '品名'),
+          category:  findCol('分類', 'category', '類別'),
+          location:  findCol('位置', 'location', '存放位置', '地點'),
+          status:    findCol('狀態', 'status'),
+          note:      findCol('備註', 'note', '說明'),
+          alias:     findCol('代稱', 'alias', '簡稱', '顯示名稱'),
+          model:     findCol('型號', 'model', '廠牌型號', '機型'),
+          manualUrl: findCol('說明書', 'manual', 'manualurl', '連結', '影片', '操作說明'),
+          extraInfo: findCol('相關資料', 'extrainfo', 'extra', '補充'),
+          icon:      findCol('圖標', 'icon', 'iconhtml', '圖示')
+        };
+
+        if (colMap.item === -1) {
+          throw new Error('找不到「品項」欄位，請確認試算表第一列標題是否正確');
+        }
+
+        const items = [];
+        dataRows.forEach((row, idx) => {
+          if (!Array.isArray(row)) return;
+          const get = (key) => {
+            const i = colMap[key];
+            if (i === -1 || i >= row.length) return '';
+            return String(row[i] ?? '').trim();
+          };
+
+          const itemName = get('item');
+          if (!itemName) return;
+
+          let iconHtml = get('icon');
+          if (!iconHtml || !iconHtml.includes('material-icons')) {
+            iconHtml = this.getDefaultIcon(itemName);
+          }
+
+          items.push({
+            rowNumber: idx + rowNumberOffset,
+            item: itemName,
+            category: this.normalizeText(get('category')) || '其他',
+            location: this.normalizeText(get('location')) || '未指定位置',
+            status: this.normalizeText(get('status')) || '正常',
+            note: get('note'),
+            alias: get('alias') || itemName,
+            model: get('model'),
+            manualUrl: get('manualUrl'),
+            extraInfo: get('extraInfo'),
+            iconHtml
+          });
+        });
+
+        return items;
+      },
+
+      // 解析 gviz JSON 物件（相容日期/格式化欄位與無標題自動辨識）
+      parseGvizPayload(json) {
+        if (!json) throw new Error('試算表回傳空資料');
+        if (json.status === 'error') {
+          const msg = (json.errors && json.errors[0] && (json.errors[0].detailed_message || json.errors[0].message)) || 'Google Sheets 回傳錯誤';
+          throw new Error(msg);
+        }
+        if (!json.table || !Array.isArray(json.table.cols) || !Array.isArray(json.table.rows)) {
+          throw new Error('試算表沒有資料或格式不正確');
+        }
+
+        const extractCell = (cell) => {
+          if (!cell) return '';
+          if (cell.f !== undefined && cell.f !== null && String(cell.f).trim() !== '') {
+            return String(cell.f).trim();
+          }
+          if (cell.v !== undefined && cell.v !== null) {
+            return String(cell.v).trim();
+          }
+          return '';
+        };
+
+        let headers = json.table.cols.map(c => (c.label || '').trim());
+        let rows = json.table.rows.map(r => (r && Array.isArray(r.c)) ? r.c.map(extractCell) : []);
+        let rowOffset = 2;
+
+        // 若 Google 未自動辨識標題列（label 皆為空），則改取第一列作為標題
+        if (headers.every(h => !h) && rows.length > 0) {
+          headers = rows[0];
+          rows = rows.slice(1);
+          rowOffset = 2;
+        }
+
+        return this.rowsToItems(headers, rows, rowOffset);
+      },
+
+      // 內建 RFC 4180 CSV 解析器（供第三層備援使用）
+      parseCsvText(csvText) {
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < csvText.length; i++) {
+          const ch = csvText[i];
+          const next = csvText[i + 1];
+
+          if (inQuotes) {
+            if (ch === '"' && next === '"') {
+              field += '"';
+              i++;
+            } else if (ch === '"') {
+              inQuotes = false;
+            } else {
+              field += ch;
+            }
+          } else {
+            if (ch === '"') {
+              inQuotes = true;
+            } else if (ch === ',') {
+              row.push(field);
+              field = '';
+            } else if (ch === '\r' && next === '\n') {
+              row.push(field);
+              rows.push(row);
+              row = [];
+              field = '';
+              i++;
+            } else if (ch === '\n' || ch === '\r') {
+              row.push(field);
+              rows.push(row);
+              row = [];
+              field = '';
+            } else {
+              field += ch;
+            }
+          }
+        }
+        if (field.length > 0 || row.length > 0) {
+          row.push(field);
+          rows.push(row);
+        }
+
+        if (rows.length < 2) throw new Error('CSV 內容為空或缺少資料列');
+        return this.rowsToItems(rows[0], rows.slice(1), 2);
+      },
+
+      // 通道 1（主通道）：JSONP 直連，完全不受瀏覽器 CORS Policy 限制
+      fetchViaJsonp() {
+        return new Promise((resolve, reject) => {
+          const cbName = `__gviz_cb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const script = document.createElement('script');
+          let settled = false;
+
+          const cleanup = () => {
+            if (timer) clearTimeout(timer);
+            try { delete window[cbName]; } catch (_) { window[cbName] = undefined; }
+            if (script.parentNode) script.parentNode.removeChild(script);
+          };
+
+          const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error('JSONP 連線逾時（請檢查網路或試算表權限）'));
+          }, Config.TIMEOUT_MS);
+
+          window[cbName] = (payload) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            try {
+              resolve(this.parseGvizPayload(payload));
+            } catch (err) {
+              reject(err);
+            }
+          };
+
+          script.onerror = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error('JSONP 載入失敗（可能是試算表未開啟公開檢視權限）'));
+          };
+
+          script.async = true;
+          script.src = this.buildGvizUrl(cbName);
+          document.head.appendChild(script);
+        });
+      },
+
+      // 通道 2（備援）：Fetch gviz JSON
+      async fetchViaGvizFetch() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Config.TIMEOUT_MS);
+        try {
+          const res = await fetch(this.buildGvizUrl(), {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            signal: controller.signal
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const text = await res.text();
+          if (text.includes('Sign in') || text.includes('accounts.google.com')) {
+            throw new Error('試算表權限不足，請設為「知道連結的任何人 → 檢視者」');
+          }
+          const start = text.indexOf('{');
+          const end = text.lastIndexOf('}') + 1;
+          if (start === -1 || end === 0) throw new Error('gviz 回傳格式異常');
+          return this.parseGvizPayload(JSON.parse(text.slice(start, end)));
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+
+      // 通道 3（備援）：Fetch CSV 匯出
+      async fetchViaCsvFetch() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), Config.TIMEOUT_MS);
+        try {
+          const res = await fetch(this.buildCsvUrl(), {
+            method: 'GET',
+            mode: 'cors',
+            credentials: 'omit',
+            signal: controller.signal
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const text = await res.text();
+          if (text.includes('Sign in') || text.includes('accounts.google.com') || text.trim().startsWith('<!DOCTYPE html')) {
+            throw new Error('試算表權限不足，請設為「知道連結的任何人 → 檢視者」');
+          }
+          return this.parseCsvText(text);
+        } finally {
+          clearTimeout(timer);
+        }
+      },
+
+      // 依序嘗試三層通道讀取試算表
+      async fetchFromSheet() {
+        if (!Config.SHEET_ID || Config.SHEET_ID.includes('請在這裡')) {
+          throw new Error('尚未設定試算表 ID（請在 Config.SHEET_ID 填入）');
+        }
+
+        const strategies = [
+          { name: 'JSONP 直連', fn: () => this.fetchViaJsonp() },
+          { name: 'Fetch gviz', fn: () => this.fetchViaGvizFetch() },
+          { name: 'Fetch CSV', fn: () => this.fetchViaCsvFetch() }
+        ];
+
+        const errors = [];
+        for (const strategy of strategies) {
+          try {
+            const items = await strategy.fn();
+            return { items, transport: strategy.name };
+          } catch (err) {
+            errors.push(`${strategy.name}: ${err.message}`);
+          }
+        }
+
+        throw new Error(
+          '所有純前端通道皆無法讀取試算表，請確認：\n' +
+          '1. 試算表共用權限已設為「知道連結的任何人 → 檢視者」\n' +
+          '2. 試算表 ID 正確且網路連線正常\n' +
+          '（詳細紀錄：' + errors.join(' | ') + '）'
+        );
+      },
+
+      // 依資料重建字典（位置、分類、狀態）
+      rebuildDict(items) {
+        const locations = new Set();
+        const categories = new Set();
+        const statuses = new Set();
+
+        items.forEach(i => {
+          if (i.location) locations.add(i.location);
+          if (i.category) categories.add(i.category);
+          if (i.status) statuses.add(i.status);
+        });
+
+        const merge = (preferred, set) => {
+          const result = preferred.filter(x => set.has(x));
+          [...set].sort((a, b) => a.localeCompare(b, 'zh-Hant')).forEach(x => {
+            if (!result.includes(x)) result.push(x);
+          });
+          return result;
+        };
+
+        AppState.dict.locations = merge(AppState.dict.locations, locations);
+        AppState.dict.categories = merge(AppState.dict.categories, categories);
+        AppState.dict.statuses = merge(AppState.dict.statuses, statuses);
+      },
+
+      async init(isManual = false) {
+        if (this.isSyncing) return;
+        this.isSyncing = true;
+        this.setSyncStatus('loading', '同步中');
+
+        // 第一次載入先顯示備援資料，避免畫面空白
+        if (!isManual && AppState.items.length === 0) {
+          AppState.items = Config.FALLBACK_ITEMS;
+          UIController.renderAll();
+        }
+
+        try {
+          const { items, transport } = await this.fetchFromSheet();
+          AppState.items = items;
+          AppState.meta.isLive = true;
+          AppState.meta.transport = transport;
+          AppState.meta.lastSyncedAt = new Date();
+
+          this.rebuildDict(items);
+          this.hideErrorBanner();
+          this.setSyncStatus('live', `已同步 (${items.length}筆)`);
+          const timeStr = AppState.meta.lastSyncedAt.toLocaleTimeString('zh-TW', { hour12: false });
+          document.getElementById('syncStatusBtn').title = `已透過「${transport}」同步完成（${timeStr}，點擊重新同步）`;
+          UIController.renderAll();
+        } catch (err) {
+          console.warn('讀取試算表失敗：', err.message);
+          AppState.meta.isLive = false;
+          if (AppState.items.length === 0) {
+            AppState.items = Config.FALLBACK_ITEMS;
+          }
+          this.setSyncStatus('offline', '連線異常');
+          this.showErrorBanner(err.message);
+          document.getElementById('syncStatusBtn').title = '讀取失敗，點擊重試';
+          UIController.renderAll();
+        } finally {
+          this.isSyncing = false;
+        }
+      }
+    };
+
+    /**
+     * ============================================================================
+     * UIController
+     * ============================================================================
+     */
+    const UIController = {
+      escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      },
+
+      getStatusBadge(status) {
+        const st = status || '正常';
+        const style = Config.STATUS_STYLES[st] || Config.STATUS_STYLES['正常'];
+        const dotHtml = style.showDot
+          ? `<span class="w-1.5 h-1.5 rounded-full ${style.dot}"></span>`
+          : '';
+        return `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${style.badge}">
+            ${dotHtml}
+            <span>${this.escapeHtml(st)}</span>
+          </span>
+        `;
+      },
+
+      getDictByType(type) {
+        if (type === 'location') return AppState.dict.locations;
+        if (type === 'category') return AppState.dict.categories;
+        if (type === 'status') return AppState.dict.statuses;
+        return [];
+      },
+
+      getFilterKey(type) {
+        if (type === 'location') return 'locationFilter';
+        if (type === 'category') return 'categoryFilter';
+        if (type === 'status') return 'statusFilter';
+        return '';
+      },
+
+      getSelectedSet(type) {
+        const dict = this.getDictByType(type);
+        const filterVal = AppState.ui[this.getFilterKey(type)];
+        return filterVal === null ? new Set(dict) : filterVal;
+      },
+
+      getFilterSummaryText(type) {
+        const dict = this.getDictByType(type);
+        const filterVal = AppState.ui[this.getFilterKey(type)];
+        if (filterVal === null || (dict.length > 0 && filterVal.size >= dict.length)) {
+          return { text: '全部', isActive: false, isEmpty: false };
+        }
+        if (filterVal.size === 0) {
+          return { text: '未選取', isActive: true, isEmpty: true };
+        }
+        if (filterVal.size === 1) {
+          const onlyVal = [...filterVal][0];
+          return { text: onlyVal, isActive: true, isEmpty: false };
+        }
+        // 只隱藏單一條件時，直接顯示「排除 XXX」方便辨識
+        const excluded = dict.filter(opt => !filterVal.has(opt));
+        if (excluded.length === 1 && dict.length >= 3) {
+          return { text: `排除 ${excluded[0]}`, isActive: true, isEmpty: false };
+        }
+        return { text: `已選 ${filterVal.size}/${dict.length}`, isActive: true, isEmpty: false };
+      },
+
+      renderFilterSelects() {
+        const types = ['location', 'category', 'status'];
+        types.forEach(type => {
+          const dict = this.getDictByType(type);
+          const selectedSet = this.getSelectedSet(type);
+          const btn = document.getElementById(`filterBtn_${type}`);
+          const label = document.getElementById(`filterLabel_${type}`);
+          const menu = document.getElementById(`filterMenu_${type}`);
+          if (!btn || !label || !menu) return;
+
+          const summary = this.getFilterSummaryText(type);
+          label.textContent = summary.text;
+          btn.title = summary.isActive
+            ? `已啟用篩選（${selectedSet.size}/${dict.length} 項）`
+            : '顯示全部條件（點擊可複選或排除）';
+
+          // 依是否啟用篩選切換按鈕視覺提示
+          const baseBtnClass = 'flex-1 min-w-0 inline-flex items-center justify-between gap-1 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-r-lg border focus:outline-none transition-colors cursor-pointer select-none';
+          if (summary.isEmpty) {
+            btn.className = `${baseBtnClass} bg-rose-50 hover:bg-rose-100/80 text-rose-700 border-rose-300`;
+          } else if (summary.isActive) {
+            btn.className = `${baseBtnClass} bg-slate-200/90 hover:bg-slate-300/70 text-slate-900 border-slate-400/90`;
+          } else {
+            btn.className = `${baseBtnClass} bg-slate-100/90 hover:bg-slate-200/70 text-slate-700 border-slate-300/90`;
+          }
+
+          const optionsHtml = dict.map((opt, idx) => {
+            const isChecked = selectedSet.has(opt);
+            const statusStyle = (type === 'status' && opt !== '正常' && Config.STATUS_STYLES[opt])
+              ? Config.STATUS_STYLES[opt]
+              : null;
+
+            const rowClass = isChecked
+              ? (statusStyle ? statusStyle.optionSelectedClass : 'bg-slate-800 text-white hover:bg-slate-700')
+              : 'bg-white text-slate-800 hover:bg-slate-100';
+
+            return `
+              <div onclick="UIController.toggleFilterOption('${type}', ${idx})" role="option" aria-selected="${isChecked}"
+                class="flex items-center px-3 py-2 transition-colors cursor-pointer select-none ${rowClass}">
+                <span class="text-xs sm:text-sm truncate ${isChecked ? 'font-medium' : 'font-normal'}">${this.escapeHtml(opt)}</span>
+              </div>
+            `;
+          }).join('');
+
+          menu.innerHTML = `
+            <div class="max-h-64 overflow-y-auto" role="listbox" aria-multiselectable="true">
+              ${optionsHtml || '<div class="px-3 py-4 text-center text-xs text-slate-400">尚無可選項目</div>'}
+            </div>
+          `;
+        });
+      },
+
+      toggleFilterDropdown(type, event) {
+        if (event) event.stopPropagation();
+        const isOpening = AppState.ui.openDropdown !== type;
+        this.closeAllDropdowns();
+        if (!isOpening) return;
+
+        AppState.ui.openDropdown = type;
+        const menu = document.getElementById(`filterMenu_${type}`);
+        const btn = document.getElementById(`filterBtn_${type}`);
+        const arrow = document.getElementById(`filterArrow_${type}`);
+        if (!menu || !btn) return;
+
+        // 重設水平對齊，開啟後檢查是否超出視窗右側邊界
+        menu.classList.remove('hidden', 'right-0');
+        menu.classList.add('left-0');
+        btn.setAttribute('aria-expanded', 'true');
+        if (arrow) arrow.classList.add('rotate-180');
+
+        const rect = menu.getBoundingClientRect();
+        if (rect.right > window.innerWidth - 12) {
+          menu.classList.remove('left-0');
+          menu.classList.add('right-0');
+        }
+      },
+
+      closeAllDropdowns() {
+        ['location', 'category', 'status'].forEach(type => {
+          const menu = document.getElementById(`filterMenu_${type}`);
+          const btn = document.getElementById(`filterBtn_${type}`);
+          const arrow = document.getElementById(`filterArrow_${type}`);
+          if (menu) menu.classList.add('hidden');
+          if (btn) btn.setAttribute('aria-expanded', 'false');
+          if (arrow) arrow.classList.remove('rotate-180');
+        });
+        AppState.ui.openDropdown = null;
+      },
+
+      toggleFilterOption(type, idx) {
+        const dict = this.getDictByType(type);
+        const value = dict[idx];
+        if (value === undefined) return;
+
+        const key = this.getFilterKey(type);
+        const nextSet = new Set(this.getSelectedSet(type));
+        if (nextSet.has(value)) nextSet.delete(value);
+        else nextSet.add(value);
+
+        AppState.ui[key] = (nextSet.size === dict.length) ? null : nextSet;
+        this.renderFilterSelects();
+        this.renderHierarchyList();
+      },
+
+      getFilteredItems() {
+        const { locationFilter, categoryFilter, statusFilter } = AppState.ui;
+        return AppState.items.filter(item => {
+          const matchLoc = (locationFilter === null || locationFilter.has(item.location));
+          const matchCat = (categoryFilter === null || categoryFilter.has(item.category));
+          const matchSt  = (statusFilter === null || statusFilter.has(item.status));
+          return matchLoc && matchCat && matchSt;
+        });
+      },
+
+      renderHierarchyList() {
+        const container = document.getElementById('hierarchyContainer');
+        const emptyState = document.getElementById('emptyState');
+        const filtered = this.getFilteredItems();
+
+        if (filtered.length === 0) {
+          container.innerHTML = '';
+          emptyState.classList.remove('hidden');
+          return;
+        }
+
+        emptyState.classList.add('hidden');
+
+        const groups = {};
+        filtered.forEach(item => {
+          const key = item[AppState.ui.groupBy] || '其他';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(item);
+        });
+
+        let orderRef = [];
+        if (AppState.ui.groupBy === 'location') orderRef = AppState.dict.locations;
+        else if (AppState.ui.groupBy === 'category') orderRef = AppState.dict.categories;
+        else if (AppState.ui.groupBy === 'status') orderRef = AppState.dict.statuses;
+
+        const groupKeys = Object.keys(groups).sort((a, b) => {
+          const idxA = orderRef.indexOf(a);
+          const idxB = orderRef.indexOf(b);
+          if (idxA === -1 && idxB === -1) return a.localeCompare(b, 'zh-Hant');
+          if (idxA === -1) return 1;
+          if (idxB === -1) return -1;
+          return idxA - idxB;
+        });
+
+        container.innerHTML = groupKeys.map(groupName => {
+          const groupItems = groups[groupName];
+          const isCollapsed = AppState.ui.collapsedGroups.has(groupName);
+          const damagedCount = groupItems.filter(i => i.status === '損壞').length;
+          const safeGroupArg = groupName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+          const statusStyle = (AppState.ui.groupBy === 'status' && groupName !== '正常' && Config.STATUS_STYLES[groupName])
+            ? Config.STATUS_STYLES[groupName]
+            : null;
+          const headerClass = statusStyle
+            ? statusStyle.optionSelectedClass
+            : 'bg-slate-800 text-white hover:bg-slate-700';
+
+          const statsText = (AppState.ui.groupBy !== 'status' && damagedCount > 0)
+            ? `${groupItems.length}項，<span class="text-rose-300 font-medium">${damagedCount}損壞</span>`
+            : `${groupItems.length}項`;
+
+          return `
+            <section class="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
+              <button type="button" onclick="UIController.toggleGroup('${safeGroupArg}')"
+                class="w-full px-4 py-2.5 flex items-center justify-between transition-colors text-left select-none cursor-pointer ${headerClass}">
+                <div class="flex items-center gap-2">
+                  <span class="material-icons text-white/75 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : 'rotate-0'}" style="font-size: 18px;">expand_more</span>
+                  <span class="text-sm font-semibold text-white">${this.escapeHtml(groupName)}</span>
+                  <span class="text-xs text-white/80 ml-0.5">${statsText}</span>
+                </div>
+              </button>
+              <div class="${isCollapsed ? 'hidden' : 'p-3.5 border-t border-slate-100'}">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
+                  ${groupItems.map(item => this.renderMiniCard(item)).join('')}
+                </div>
+              </div>
+            </section>
+          `;
+        }).join('');
+      },
+
+      renderMiniCard(item) {
+        const iconHtml = item.iconHtml && item.iconHtml.includes('material-icons')
+          ? item.iconHtml
+          : '<span class="material-icons">devices</span>';
+        const displayName = item.alias || item.item || '未命名';
+        const style = Config.STATUS_STYLES[item.status] || Config.STATUS_STYLES['正常'];
+
+        return `
+          <button type="button" onclick="UIController.openDetailModal(${item.rowNumber})"
+            class="group flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer select-none ${style.cardClass}">
+            <span class="shrink-0 flex items-center justify-center transition-colors ${style.iconClass}">${iconHtml}</span>
+            <span class="text-xs sm:text-sm font-medium truncate ${style.textClass}">${this.escapeHtml(displayName)}</span>
+          </button>
+        `;
+      },
+
+      openDetailModal(rowNumber) {
+        const item = AppState.items.find(i => i.rowNumber === rowNumber);
+        if (!item) return;
+
+        const modal = document.getElementById('detailModal');
+        const iconBox = document.getElementById('modalIconBox');
+        const aliasEl = document.getElementById('modalAlias');
+        const itemNameEl = document.getElementById('modalItemName');
+        const bodyEl = document.getElementById('modalBody');
+
+        iconBox.innerHTML = item.iconHtml && item.iconHtml.includes('material-icons')
+          ? item.iconHtml
+          : '<span class="material-icons">devices</span>';
+        aliasEl.textContent = item.alias || item.item || '未命名';
+        itemNameEl.textContent = item.item || '-';
+
+        const noteText = (item.note || '').replace(/<br\s*\/?>/gi, ' / ');
+        const isVideo = item.manualUrl && (item.manualUrl.includes('youtube.com') || item.manualUrl.includes('youtu.be'));
+
+        bodyEl.innerHTML = `
+          <div class="flex items-center justify-between py-1">
+            <span class="text-slate-400">目前狀態</span>
+            ${this.getStatusBadge(item.status)}
+          </div>
+          <div class="flex items-center justify-between py-1 border-t border-slate-100">
+            <span class="text-slate-400">存放位置</span>
+            <span class="font-medium text-slate-800">${this.escapeHtml(item.location)}</span>
+          </div>
+          <div class="flex items-center justify-between py-1 border-t border-slate-100">
+            <span class="text-slate-400">設備分類</span>
+            <span class="font-medium text-slate-800">${this.escapeHtml(item.category)}</span>
+          </div>
+          <div class="flex items-center justify-between py-1 border-t border-slate-100 gap-4">
+            <span class="text-slate-400 shrink-0">廠牌型號</span>
+            <span class="font-mono text-xs text-slate-800 text-right">${this.escapeHtml(item.model || '未登錄')}</span>
+          </div>
+          ${noteText ? `
+            <div class="pt-2 border-t border-slate-100">
+              <span class="text-slate-400 block mb-1">備註</span>
+              <p class="text-slate-700 bg-slate-50 px-3 py-2 rounded-lg text-xs">${this.escapeHtml(noteText)}</p>
+            </div>
+          ` : ''}
+          ${item.extraInfo ? `
+            <div class="pt-2 border-t border-slate-100">
+              <span class="text-slate-400 block mb-1">相關資料</span>
+              <p class="text-slate-700 bg-slate-50 px-3 py-2 rounded-lg text-xs">${this.escapeHtml(item.extraInfo)}</p>
+            </div>
+          ` : ''}
+          ${item.manualUrl ? `
+            <div class="pt-3 border-t border-slate-100">
+              <a href="${this.escapeHtml(item.manualUrl)}" target="_blank" rel="noopener noreferrer"
+                class="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-xs font-medium transition-colors">
+                <span class="material-icons" style="font-size: 16px;">${isVideo ? 'play_circle' : 'description'}</span>
+                <span>${isVideo ? '觀看教學影片' : '查看操作說明書'}</span>
+                <span class="material-icons" style="font-size: 14px;">open_in_new</span>
+              </a>
+            </div>
+          ` : ''}
+        `;
+
+        modal.classList.remove('hidden');
+      },
+
+      closeDetailModal() {
+        document.getElementById('detailModal').classList.add('hidden');
+      },
+
+      setGroupBy(field) {
+        AppState.ui.groupBy = field;
+        AppState.ui.collapsedGroups.clear();
+
+        const btnMap = {
+          location: document.getElementById('groupByLocationBtn'),
+          category: document.getElementById('groupByCategoryBtn'),
+          status: document.getElementById('groupByStatusBtn')
+        };
+
+        const activeClass = 'shrink-0 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-800 bg-slate-800 text-white transition-colors cursor-pointer select-none whitespace-nowrap';
+        const inactiveClass = 'shrink-0 px-2 sm:px-2.5 py-1.5 text-xs sm:text-sm font-medium rounded-l-lg border border-r-0 border-slate-300/90 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer select-none whitespace-nowrap';
+
+        Object.keys(btnMap).forEach(key => {
+          if (btnMap[key]) {
+            btnMap[key].className = (key === field) ? activeClass : inactiveClass;
+          }
+        });
+
+        this.renderHierarchyList();
+      },
+
+      toggleGroup(groupName) {
+        if (AppState.ui.collapsedGroups.has(groupName)) {
+          AppState.ui.collapsedGroups.delete(groupName);
+        } else {
+          AppState.ui.collapsedGroups.add(groupName);
+        }
+        this.renderHierarchyList();
+      },
+
+      resetFilters() {
+        AppState.ui.locationFilter = null;
+        AppState.ui.categoryFilter = null;
+        AppState.ui.statusFilter = null;
+        this.closeAllDropdowns();
+        this.renderAll();
+      },
+
+      renderAll() {
+        this.renderFilterSelects();
+        this.renderHierarchyList();
+      }
+    };
+
+    // Esc 關閉面板與下拉選單
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        UIController.closeDetailModal();
+        UIController.closeAllDropdowns();
+      }
+    });
+
+    // 點擊下拉選單外部自動收合
+    document.addEventListener('click', (e) => {
+      if (AppState.ui.openDropdown && !e.target.closest('[data-filter-dropdown]')) {
+        UIController.closeAllDropdowns();
+      }
+    });
+
+    // 頁面重新顯示時自動同步
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        DataService.init(false);
+      }
+    });
+
+    // 啟動
+    window.addEventListener('DOMContentLoaded', () => {
+      DataService.init(false);
+    });
+  </script>
+  <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
